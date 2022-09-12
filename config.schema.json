@@ -1,0 +1,114 @@
+{
+    "pluginAlias": "FrigidaireAppliance",
+    "pluginType": "platform",
+    "singular": true,
+    "footerDisplay": "Battery Tender Configuration",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string",
+          "required": true,
+          "default": "FrigidaireAppliance",
+          "placeholder": "e.g. Battery Tender"
+        },
+        "auth": {
+          "title": "Authorization",
+          "type": "object",
+          "properties": {
+            "email": {
+              "title": "BatteryTender Email",
+              "type": "string",
+              "required": true
+            },
+            "password": {
+              "title": "BatteryTender Password",
+              "type": "string",
+              "required": true
+            }
+          }
+        },
+          "deviceRefresh": {
+          "title": "Device Refresh Interval",
+          "type": "integer",
+          "default": 1,
+          "description": "Poll interval to obtain device updates status in hours (<b>Note</b>: BatteryTender devices are updated between 4-6 hour daily).",
+          "minimum": 1,
+          "maximum": 24
+        },
+        "batteryWarning": {
+          "title": "Battery Indicator Warning Level",
+          "type": "integer",
+          "default": 30,
+          "description": "Battery Tender level to indicated when battery warning icon level is display in HomeKit.",
+          "minimum": 20,
+          "maximum": 90
+        },
+        "switchAutoOn": {
+          "title": "Automaticly Turn-On Outlet for Voltage Level",
+          "type": "string",
+          "default": 11.99,
+          "description": "Plug will switch to On state when battery voltage falls to this level."
+
+        },
+        "switchStateReverse": {
+          "title": "Set Outlet to Turn-Off for Voltage Level",
+          "type": "boolean",
+          "default": false,
+          "description": "Set outlet off when voltage level is reached, rather than default to On." 
+
+        },
+        "excludedDevices": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Device IDs"
+          }
+        }
+      }
+    },
+    "layout": [{
+        "type": "fieldset",
+        "items": [
+          "name",
+          "auth.email",
+          "auth.password",
+          "deviceRefresh"
+        ]
+      },
+      {
+        "type": "fieldset",
+        "expandable": true,
+        "title": "Threshold Options",
+        "items": [
+          "batteryWarning",
+          "switchAutoOn",
+          "switchStateReverse"
+        ]
+      },
+      {
+        "type": "fieldset",
+        "expandable": true,
+        "title": "Advanced Options",
+        "items": [
+          {
+            "key": "excludedDevices",
+            "title": "Excluded Devices",
+            "description": "A list of devices to exclude from HomeKit. Obtain deviceID from Homebridge startup log.",
+            "add": "Add Another Device",
+            "type": "array",
+            "items": [
+              {
+                "type": "fieldset",
+                "items": [
+                  "excludedDevices[]"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+  
