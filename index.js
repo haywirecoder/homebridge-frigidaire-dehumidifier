@@ -91,7 +91,7 @@ class FrigidaireAppliancePlatform {
       // if clean air enable create airpurifier tile to control functionality.
       if (this.config.enableair) {
 
-          var deviceAccessoryAir = new airpurifierAppliance(this.frig, currentDevice, this.config, this.log, Service, Characteristic, UUIDGen, HomebridgeAPI);
+          var deviceAccessoryAir = new airpurifierAppliance(this.frig, currentDevice, this.config, this.log, Service, Characteristic, UUIDGen, deviceAccessory);
           // check the accessory was not restored from cache
           var foundAccessory = this.accessories.find(accessory => accessory.UUID === deviceAccessoryAir.uuid)
           if (!foundAccessory) {
@@ -133,6 +133,8 @@ async orphanAccessory() {
           if (!foundAccessory) 
             this.removeAccessory(accessory,true);
       }
+      else
+        this.removeAccessory(accessory,true);
     }
   }
 }
