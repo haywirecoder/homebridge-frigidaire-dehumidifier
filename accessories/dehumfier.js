@@ -111,6 +111,12 @@ class dehumidifierAppliance {
 
   }
    
+  DehumidifierHandler(mode) {
+
+    var dehumidifierService = this.accessory.getService(this.Service.HumidifierDehumidifier);
+    dehumidifierService.updateCharacteristic(this.Characteristic.Active,this.Characteristic.Active.ACTIVE);
+
+  }
   // Handle requests to get the current value of the "Active" characteristic
   async getDehumidifierActive(callback) {
       var currentValue = this.Characteristic.Active.INACTIVE;
