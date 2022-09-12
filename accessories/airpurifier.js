@@ -71,9 +71,10 @@ class airPurifierAppliance {
     // }
     if (value == this.Characteristic.Active.ACTIVE) {
       // Send message to parent device to activate.
-      var dehumidifierService = this.parentAppliance.accessory.getService(this.Service.HumidifierDehumidifier);
-      dehumidifierService.updateCharacteristic(this.Characteristic.Active,this.Characteristic.Active.ACTIVE);
+      // var dehumidifierService = this.parentAppliance.accessory.getService(this.Service.HumidifierDehumidifier);
+      // dehumidifierService.updateCharacteristic(this.Characteristic.Active,this.Characteristic.Active.ACTIVE);
 
+      this.parentAppliance.DehumidifierHandler(value);
       // Set filter state information
       airPurifierService.updateCharacteristic(this.Characteristic.CurrentAirPurifierState,this.Characteristic.CurrentAirPurifierState.PURIFYING_AIR);
       airPurifierService.updateCharacteristic(this.Characteristic.TargetAirPurifierState,this.Characteristic.TargetAirPurifierState.AUTO);
