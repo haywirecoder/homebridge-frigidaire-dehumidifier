@@ -71,6 +71,9 @@ const COUNTRY = 'US'
  const CHILDMODE_OFF = 0
  const CHILDMODE_ON = 1
 
+ const DEHUMIDIFIERMODES = new Set([DEHMODE_DRY,DEHMODE_AUTO,DEHMODE_CONTINUOUS,DEHMODE_QUIET]);
+ const DEHUMIDIFIERFANMODES = new Set([FANMODE_MED,FANMODE_LOW,FANMODE_HIGH]);
+
 class Frigidaire extends EventEmitter {
     auth_token = {};
     excludedDevices = []
@@ -98,7 +101,6 @@ class Frigidaire extends EventEmitter {
         this.excludedDevices = config.excludedDevices || [];
         this.auth_token.username = config.auth.username;
         this.auth_token.password = config.auth.password;
-        this.auth_token.sessionKey ="";
         this.clientId = CLIENTID;
         this.userAgent = USERAGENT;
         this.basicAuthToken = BASICAUTHTOKEN;
@@ -106,9 +108,10 @@ class Frigidaire extends EventEmitter {
         this.country =COUNTRY;
         this.brand =BRAND;
         this.sessionKey = null;
-        this.deviceRefreshTime = config.deviceRefreshTime || 10000; // default to 10 seconds, so we don't hammer their servers
+        this.deviceRefreshTime = config.deviceRefreshTime || 30000; // default to 30 seconds, so we don't hammer their servers
         this.attempts = 0;
-        this.lastUpdate = null;       
+        this.lastUpdate = null;  
+        this.isBusy = false;     
     };
 
     // Initization routine
@@ -120,6 +123,8 @@ class Frigidaire extends EventEmitter {
             return authResponse;
 
         }  catch (err) {
+                
+                this.log.error('Frigidair initization Error: ',err);
                 return false;
 
         }
@@ -173,7 +178,7 @@ class Frigidaire extends EventEmitter {
                                 .set('accept', 'json')
                                 .disableTLSCerts();
             if (response.body.status == 'ERROR' && response.body.code != 'ECP0000') {
-                console.error("Frigidair Login Error: " + response.body.code + " " + response.body.message);
+                this.log.error("Frigidair Login Error: " + response.body.code + " " + response.body.message);
             } 
             else {
                 this.sessionKey = response.body.data.sessionKey;
@@ -181,57 +186,81 @@ class Frigidaire extends EventEmitter {
             }
           } 
           catch (err) {
-                console.error(err);
+                this.log.error("Frigidair Login Error: ", err.response.body.code + ' ' + err.response.body.message);
                 return false;
          }
     }
 
     async isValidSession() {
         var uri = "/config-files/haclmap/latest_version";
-        try {
-            const sessionValidationResponse = await this.getRequest(uri);
-            if (sessionValidationResponse.status_code != 200) return false;
 
-        }  catch (err) {
-                return false;
+        if ((this.sessionKey == null) || (this.sessionKey == "")) return false;
 
-        }
+        const sessionValidationResponse = await this.getRequest(uri);
+        if (sessionValidationResponse.status_code != 200) return false;
+        return true;
     };
 
-    async getDevices () {
+    // Discover devices in account and built out the the array
+    async discoverDevices () {
         var uri = '/user-appliance-reg/users/' + this.auth_token.username + '/appliances?country=' + COUNTRY + '&includeFields=true';
-        
-        try {
-            const deviceJSON = await this.getRequest(uri);
-            // create device list from user profile.
-            for(var i in deviceJSON) {
-                if (this.excludedDevices.includes(deviceJSON[i]['nickname'])) {
-                    console.log(`Executing Device with name: '${deviceJSON[i]['nickname']}'`);
-                    
-                } else {
-                    var device = {};
+        if (!(await this.isValidSession())) return; 
+    
+        const deviceJSON = await this.getRequest(uri);
+        // create device list from user profile.
+        for(var i in deviceJSON) {
+            if (this.excludedDevices.includes(deviceJSON[i]['nickname'])) {
+                this.log(`Executing Device with name: '${deviceJSON[i]['nickname']}'`);
+                
+            } else {
+                var device = {};
+                device.deviceId = deviceJSON[i]['appliance_id'];
+                device.serialNumber = deviceJSON[i]['sn'].trim();; //Serial number
+                device.name = deviceJSON[i]['nickname'].trim();
+                device.mac = deviceJSON[i]['mac']; // MAC address
+                device.pnc = deviceJSON[i]['pnc']; // Product code
+                device.elc = deviceJSON[i]['elc'];
+                device.cpv = deviceJSON[i]['cpv'];
+                device.monitoredValues = "";
+                device.lastUpdate = Date.now();
+                this.frig_devices.push(device);
+                await this.getDetailForDevice(i);
+            }
+        }
+       
+    }
 
-                    device.deviceId = deviceJSON[i]['appliance_id'];
-                    device.serialNumber = deviceJSON[i]['sn']; //Serial number
-                    device.name = deviceJSON[i]['nickname'];
-                    device.mac = deviceJSON[i]['mac']; // MAC address
-                    device.pnc = deviceJSON[i]['pnc']; // Product code
-                    device.elc = deviceJSON[i]['elc'];
-                    device.cpv = deviceJSON[i]['cpv'];
-                    this.frig_devices.push(device);
-                    await this.getDetailForDevice(i);
+    // For each device on list get the detail, if the device has change emit a change to allow accessory to capture the change. 
+    async refreshDevices () {
+
+        // Performing update don't allow other processes
+        if (this.isBusy) return;
+        this.isBusy = true;
+        try {
+            for (var i = 0; i < this.frig_devices.length; i++) {
+                let currentUpdateDate = this.frig_devices[i].lastupdate;
+                let deviceResp = await this.getDetailForDevice(i);
+                
+                if (deviceResp){
+                    // change were detected updata device data elements and trigger updata.
+                    if (currentUpdateDate != this.frig_devices[i].lastupdate) {
+                    this.emit(this.frig_devices[i].deviceid, {
+                        device: this.frig_devices[i]
+                    });}
                 }
             }
-        } catch (err) {
-
+        } 
+        catch (err) {
+            this.log.error('Frigidairfresh Error: ',err);
         }
+        // Process completed
+        this.isBusy = false;
     }
     // Uses the Frigidaire API to fetch details for a given appliance
     async getDetailForDevice(deviceIndex) {
         const DETAILENDPOINT = '/elux-ms/appliances/latest'
         var urlDeviceString = "?pnc=" + this.frig_devices[deviceIndex].pnc + "&elc=" + this.frig_devices[deviceIndex].elc + "&sn=" + this.frig_devices[deviceIndex].serialNumber + "&mac=" + this.frig_devices[deviceIndex].mac + "&includeSubcomponents=true";
         var uri = DETAILENDPOINT + urlDeviceString
-
         try {
             const detailJSON = await this.getRequest(uri);
             for (var i = 0; i < detailJSON.length; i++) { 
@@ -242,34 +271,59 @@ class Frigidaire extends EventEmitter {
                     case MODE:
                         this.frig_devices[deviceIndex].mode = detailJSON[i]['numberValue'];
                         this.frig_devices[deviceIndex].destination = detailJSON[i]['source'];
+                        
                     break;
                     case FILTER_STATUS:
                         this.frig_devices[deviceIndex].filterStatus = detailJSON[i]['numberValue'];
+                        
                     break;
                     case FAN_MODE:
                         this.frig_devices[deviceIndex].fanMode = detailJSON[i]['numberValue'];
+                        
                     break;
                     case CLEAN_AIR_MODE:
                         this.frig_devices[deviceIndex].clearAirMode = detailJSON[i]['numberValue'];
+                        
                     break;
                     case CHILD_MODE:
                         this.frig_devices[deviceIndex].childMode = detailJSON[i]['numberValue'];
+                        
                     break;
                     case BIN_FULL_STATUS:
                         this.frig_devices[deviceIndex].bucketStatus = detailJSON[i]['numberValue'];
+                        
                     break;
                     case TARGET_HUMIDITY:
                         this.frig_devices[deviceIndex].targetHumidity = detailJSON[i]['numberValue'];
+                        
                     break;
                     case FIRMWARE_VERSION:
                         this.frig_devices[deviceIndex].firmwareVersion = detailJSON[i]['stringValue'];
+                       
                     break;
                 }
             }
         }
         catch (err) {
 
+            this.log.error('Frigidaire device detail Error: ',err);
+            return false;
         }
+        // Determine if anything has changed since last get, if yes unpdate lastupdate date.
+        var hasMonitoredValuesChanged = "" + this.frig_devices[deviceIndex].roomHumidity 
+                                 + this.frig_devices[deviceIndex].mode 
+                                 + this.frig_devices[deviceIndex].filterStatus 
+                                 + this.frig_devices[deviceIndex].fanMode 
+                                 + this.frig_devices[deviceIndex].clearAirMode
+                                 + this.frig_devices[deviceIndex].bucketStatus
+                                 + this.frig_devices[deviceIndex].targetHumidity;
+        this.log("hash: ", hasMonitoredValuesChanged);
+        if (hasMonitoredValuesChanged != this.frig_devices[deviceIndex].monitoredValues) {
+            this.frig_devices[deviceIndex].monitoredValues = hasMonitoredValuesChanged;
+            this.frig_devices[deviceIndex].lastupdate = Date.now();
+        }
+
+        return true;
     }   
 
     async getRequest(endpoint) {
@@ -289,42 +343,167 @@ class Frigidaire extends EventEmitter {
                                 .set(headers)
                                 .disableTLSCerts();
             if (response.body.status == 'ERROR' && response.body.code != 'ECP0000') {
-                 console.error("Frigidair Get Error: " + response.body.code + " " + response.body.message);
+                this.log.error("Frigidair Get Error: " + response.body.code + " " + response.body.message);
              } 
             else { 
                 return (response.body.data);
             }
           } 
           catch (err) {
-                console.error(err);
+            this.log.error('Frigidaire Get Error: ', err.response.body.code +' ' + err.response.body.message);
          }
     }
 
-    async setPowerMode(deviceIndex, onValue){
-        if (onValue) this.sendDeviceCommmand(deviceIndex,POWER_MODE,POWER_ON) 
-        else this.sendDeviceCommmand(deviceIndex,POWER_MODE,POWER_OFF) 
+    async setDevicePowerMode(deviceIndex, onValue = false){
+          // Is request out of bounds base on discovered device?
+        if(this.frig_devices.length <= deviceIndex) return false;
+        var returnCode = 0;
+        try{
+            if (onValue) returnCode = await this.sendDeviceCommmand(deviceIndex,POWER_MODE,POWER_ON) 
+            else returnCode = await this.sendDeviceCommmand(deviceIndex,POWER_MODE,POWER_OFF) 
+            if (returnCode == 200)
+            {
+                this.frig_devices[deviceIndex].mode = onValue;
+                return onValue;
+            }
+        }
+        catch(err)
+        {
+            this.log.error('Dehumidifier Mode API endpint return error: ', err);
+        }
+        return -1;
     }
 
-    async setFanSpeed(deviceIndex,speedValue){
-        this.sendDeviceCommmand(deviceIndex,FAN_SPEED_SETTING, speedValue);
+    async setDehumidifierMode(deviceIndex, DehumMode = DEHMODE_AUTO){
+        // Is request out of bounds base on discovered device?
+        if(this.frig_devices.length <= deviceIndex) return false;
+        // Is a dehumidfifer appliance?
+        if(this.frig_devices[deviceIndex].destination != DEHUMIDIFIER) return false;
+        // Is valudate mode?
+        if(!DEHUMIDIFIERMODES.has(DehumMode)) return false;
+        var returnCode = 0; 
+        try{
+            returnCode = await this.sendDeviceCommmand(deviceIndex,MODE,DehumMode);
+            if (returnCode == 200)
+            {
+                this.frig_devices[deviceIndex].mode = DehumMode;
+                return DehumMode;
+            }
+        }
+        catch (err)
+        {
+            this.log.error('Dehumidifier Mode API endpint return error: ', err);
+        }
+        return -1;
+    }
+
+    async setDehumidifierFanMode(deviceIndex,fanModeValue = FANMODE_LOW){
+          // Is request out of bounds base on discovered device?
+        if(this.frig_devices.length <= deviceIndex) return false;
+        // Is a dehumidfifer appliance?
+        if(this.frig_devices[deviceIndex].destination != DEHUMIDIFIER) return false;
+         // Is valudate mode?
+         if(!DEHUMIDIFIERFANMODES.has(fanModeValue)) return false;
+        var returnCode = 0;
+        try{
+            // check if applicance is in auto model? If auto fam mode is automaticly and can't be adjusted.
+            if (this.frig_devices[deviceIndex].mode == DEHMODE_AUTO) return false;
+            returnCode = await this.sendDeviceCommmand(deviceIndex,FAN_MODE, fanModeValue);
+            if (returnCode == 200)
+            {
+                this.frig_devices[deviceIndex].fanMode = fanModeValue;
+                return fanModeValue;
+            }
+        }
+        catch(err)
+        {
+            this.log.error('Dehumidifier Fan Mode API endpint return error: ', err);
+        }
+        return -1;
     }
     
-    async setAirPurifier(deviceIndex,onValue){
-        if (onValue) this.sendDeviceCommmand(deviceIndex,CLEAN_AIR_MODE,CLEANAIR_ON) 
-        else this.sendDeviceCommmand(deviceIndex,CLEAN_AIR_MODE,CLEANAIR_OFF) 
+    async setDehumidifierRelativeHumidity(deviceIndex, humidityLevel = 50){
+        // Is request out of bounds base on discovered device?
+        if(this.frig_devices.length <= deviceIndex) return false;
+        // Is a dehumidfifer appliance?
+        if(this.frig_devices[deviceIndex].destination != DEHUMIDIFIER) return false;
+        var returnCode = 0;
+        // determine if the humidity level is within acceptable range.
+        if (humidityLevel >= 35 && humidityLevel <= 85) {
+            // round to nearest multiple of 5.
+            humidityLevel = Math.ceil(humidityLevel/5)*5;
+            // If mode is not in auto mode thatn change set humity level. 
+            try {
+                // check if appliance is in auto model? If auto fam mode is automaticly and can't be adjusted.
+                if (this.frig_devices[deviceIndex].mode == DEHMODE_AUTO) return false;
+                returnCode = await this.sendDeviceCommmand(deviceIndex,TARGET_HUMIDITY, humidityLevel);
+                if (returnCode == 200)
+                {
+                    this.frig_devices[deviceIndex].targetHumidity = humidityLevel;
+                    return humidityLevel;
+                }
+            }
+            catch(err)
+            {
+                this.log.error('Dehumidifier Humidity Level API endpint return error: ', err);
+            }
+        }
+        this.log.error('Dehumidifier Humidity Level not within acceptable range. Value must be between 35 and 85.', err);
+        return -1;
     }
-    async setChildLock(deviceIndex,onValue){
-        if (onValue) this.sendDeviceCommmand(deviceIndex,CHILD_MODE,CHILDMODE_ON) 
-        else this.sendDeviceCommmand(deviceIndex,CHILD_MODE,CHILDMODE_OFF) 
+
+    async setDehumidifierAirPurifier(deviceIndex,modeValue = CLEANAIR_OFF){
+         // Is request out of bounds base on discovered device?
+        if(this.frig_devices.length <= deviceIndex) return false;
+        // Is a dehumidfifer appliance?
+        if(this.frig_devices[deviceIndex].destination != DEHUMIDIFIER) return false;
+        var returnCode = 0;
+        // Send command to API endpoint base on user selection
+        try{
+            if (modeValue = CLEANAIR_ON) returnCode = await this.sendDeviceCommmand(deviceIndex,CLEAN_AIR_MODE,CLEANAIR_ON) 
+            else returnCode = await this.sendDeviceCommmand(deviceIndex,CLEAN_AIR_MODE,CLEANAIR_OFF) 
+            if (returnCode == 200)
+             {
+                this.frig_devices[deviceIndex].clearAirMode = modeValue;
+                return modeValue;
+             }
+        }
+        catch (err) {
+            this.log.error('Dehumidifier AirPurifier API endpint return error: ', err);
+        }
+        return -1;
+    }
+
+    async setDehumidifierChildLock(deviceIndex, modeValue = CHILDMODE_OFF){
+           // Is request out of bounds base on discovered device?
+        if(this.frig_devices.length <= deviceIndex) return false;
+        // Is a dehumidfifer appliance?
+        if(this.frig_devices[deviceIndex].destination != DEHUMIDIFIER) return false;
+        var returnCode = 0;
+        // Send command to API endpoint base on user selection 
+        try{
+            if (modeValue == CHILDMODE_ON) returnCode = await this.sendDeviceCommmand(deviceIndex,CHILD_MODE,CHILDMODE_ON) 
+            else returnCode = await this.sendDeviceCommmand(deviceIndex,CHILD_MODE,CHILDMODE_OFF) 
+            if (returnCode == 200)
+            {
+                this.frig_devices[deviceIndex].childMode = modeValue;
+                return modeValue;
+            } 
+        } 
+        catch (err) {
+            this.log.error('Dehumidifier Childlock API endpint return error: ', err);
+        }
+        return -1;
     }
 
     async sendDeviceCommmand(deviceIndex,attribute, value) {
        
+
         const POSTENDPOINT = APIURL + "/commander/remote/sendjson";
 
         var urlDeviceString = "?pnc=" + this.frig_devices[deviceIndex].pnc + "&elc=" + this.frig_devices[deviceIndex].elc + "&sn=" + this.frig_devices[deviceIndex].serialNumber + "&mac=" + this.frig_devices[deviceIndex].mac;
         var uri = POSTENDPOINT + urlDeviceString
-
+       
         var headers = {
             'x-ibm-client-id': this.clientId,
             'User-Agent': this.userAgent,
@@ -346,8 +525,14 @@ class Frigidaire extends EventEmitter {
             "destination": this.frig_devices[deviceIndex].destination,
             "version": "ad"
         }
-   
 
+        if (!this.isLoggedIn()) {
+           // session is expired or not login, get new session key
+            const authResponse = await this.authenticate();
+            if (!authResponse) return -1;
+        }
+        
+        this.isBusy = true;
         try {
             const response = await superagent
                                 .post(uri)
@@ -356,12 +541,19 @@ class Frigidaire extends EventEmitter {
                                 .disableTLSCerts();
             console.log(response.statusCode);
             if (response.statusCode != 200) {
-                console.error("Frigidair post Error: " + response.body.code + " " + response.body.message);
+                console.error('Frigidair post Error: ' + response.body.code + ' ' + response.body.message);
             }
+            else
+               {
+                this.isBusy = false;
+                return response.statusCode;
+               }
         }
           catch (err) {
-                console.error(err);
-         }
+            this.log.error('Frigidair post Error: ', err.response.body.code +' ' + err.response.body.message);
+         } 
+         this.isBusy = false;
+         return -1;
     }
 
     GenerateId () {
@@ -373,12 +565,34 @@ class Frigidaire extends EventEmitter {
     startPollingProcess()
     {
         // Set time to refresh devices
+       this.deviceRefreshHandle = setTimeout(() => this.backgroundRefresh(), this.deviceRefreshTime); 
      
     };
 
     async backgroundRefresh() {
 
-       
+        if (this.deviceRefreshHandle) 
+        {
+            clearTimeout(this.deviceRefreshHandle);
+            this.deviceRefreshHandle = null;
+        }
+        if (this.isBusy) {
+           this.log.warn("Another process is already updating. \n Skipping Interval Update.")
+           this.deviceRefreshHandle = setTimeout(() => this.backgroundRefresh(), this.deviceRefreshTime); 
+           return;
+       }
+       // Do we have valid sessions? 
+       var authResponse = true;
+       if (!(await this.isValidSession())) {
+           // session is expired or not login, get new session key
+            authResponse = await this.authenticate();
+       }
+       // Update data elements
+       if (authResponse) await this.refreshDevices();
+      
+       // Set timer to refresh devices
+      this.deviceRefreshHandle = setTimeout(() => this.backgroundRefresh(), this.deviceRefreshTime); 
+      
     }
 }
 
