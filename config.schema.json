@@ -2,7 +2,7 @@
     "pluginAlias": "FrigidaireAppliance",
     "pluginType": "platform",
     "singular": true,
-    "footerDisplay": "Battery Tender Configuration",
+    "footerDisplay": "Frigidaire Appliance Configuration",
     "schema": {
       "type": "object",
       "properties": {
@@ -11,19 +11,19 @@
           "type": "string",
           "required": true,
           "default": "FrigidaireAppliance",
-          "placeholder": "e.g. Battery Tender"
+          "placeholder": "e.g. Frigidaire Appliance"
         },
         "auth": {
           "title": "Authorization",
           "type": "object",
           "properties": {
             "email": {
-              "title": "BatteryTender Email",
+              "title": "Frigidaire Appliance Username",
               "type": "string",
               "required": true
             },
             "password": {
-              "title": "BatteryTender Password",
+              "title": "Frigidaire Appliance Password",
               "type": "string",
               "required": true
             }
@@ -33,31 +33,43 @@
           "title": "Device Refresh Interval",
           "type": "integer",
           "default": 1,
-          "description": "Poll interval to obtain device updates status in hours (<b>Note</b>: BatteryTender devices are updated between 4-6 hour daily).",
-          "minimum": 1,
-          "maximum": 24
+          "description": "Poll interval to obtain device updates in seconds. <b>Please note:</b> A very low value may cause lockout to your account and/or API errors.",
+          "minimum": 15,
+          "maximum": 3600
         },
-        "batteryWarning": {
-          "title": "Battery Indicator Warning Level",
-          "type": "integer",
-          "default": 30,
-          "description": "Battery Tender level to indicated when battery warning icon level is display in HomeKit.",
-          "minimum": 20,
-          "maximum": 90
-        },
-        "switchAutoOn": {
-          "title": "Automaticly Turn-On Outlet for Voltage Level",
+        "dehumidifierMode": {
+          "title": "Dehumidifying Mode",
           "type": "string",
-          "default": 11.99,
-          "description": "Plug will switch to On state when battery voltage falls to this level."
-
+          "description": "Homekit only has two mode dehumidifying modes <i>auto</i> and <i>dehumidifying</i>. When dehumidifying is selected this select will be map to Frigidaire appliance mode. ",
+          "required": true,
+          "default": "DRY",
+          "oneOf": [
+            {
+              "title": "DRY",
+              "enum": [
+                5
+              ]
+            },
+            {
+              "title": "CONTINUOUS",
+              "enum": [
+                8
+              ]
+            },
+            {
+              "title": "QUIET",
+              "enum": [
+                9
+              ]
+            }
+          ]
+          
         },
-        "switchStateReverse": {
-          "title": "Set Outlet to Turn-Off for Voltage Level",
+        "enableAir": {
+          "title": "Show Air Purifier Accessory",
           "type": "boolean",
-          "default": false,
-          "description": "Set outlet off when voltage level is reached, rather than default to On." 
-
+          "default": true,
+          "description": "Expose an Air Purifier Accessory. May not be avaiable in all models."
         },
         "excludedDevices": {
           "type": "array",
@@ -72,19 +84,11 @@
         "type": "fieldset",
         "items": [
           "name",
-          "auth.email",
+          "auth.username",
           "auth.password",
-          "deviceRefresh"
-        ]
-      },
-      {
-        "type": "fieldset",
-        "expandable": true,
-        "title": "Threshold Options",
-        "items": [
-          "batteryWarning",
-          "switchAutoOn",
-          "switchStateReverse"
+          "deviceRefresh",
+          "dehumidifierMode",
+          "enableAir"
         ]
       },
       {
