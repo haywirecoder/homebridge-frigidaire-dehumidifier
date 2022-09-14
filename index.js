@@ -27,7 +27,6 @@ class FrigidaireAppliancePlatform {
   this.name = config.name;
   this.config = config;
   this.accessories = [];
-  this.config.enableAir = true;
   
   // Check if authentication information has been provided.
   try{
@@ -53,9 +52,8 @@ class FrigidaireAppliancePlatform {
   api.on('didFinishLaunching', () => {
 
     this.initialLoad =  this.frig.init().then (() => {
-       this.frig.discoverDevices().then (() => {
-        // Once devices are discovered update Homekit assessories
-        this.refreshAccessories();})
+       // Once devices are discovered update Homekit assessories
+      this.refreshAccessories();
     }).catch(err => {
       this.log.error('Frigidaire Application Initization Failure:', err);
       // terminate plug-in initization
@@ -64,11 +62,12 @@ class FrigidaireAppliancePlatform {
     
   });
   }
-   // Create associates in Homekit based on devices in Frigidaire Appliance account
+  
+  // Create associates in Homekit based on devices in Frigidaire Appliance account
   async refreshAccessories() {
   
     // Process each flo devices and create accessories within the platform.
-    this.log.info("Loading Appliances...");
+    if(this.frig.frig_devices.length <= 0) return;
     for (var i = 0; i < this.frig.frig_devices.length; i++) {
 
       let currentDevice = this.frig.frig_devices[i];
@@ -110,12 +109,10 @@ class FrigidaireAppliancePlatform {
 
     // Clean accessories with no association with Flo devices.
     this.orphanAccessory();
-    //Start background process to poll devices.
-    if(this.frig.frig_devices.length > 0)  {
-      this.log.info(`Frigidaire background polling process started. Device will be polled every ${this.config.deviceRefresh} min(s).`);        
-      this.frig.startPollingProcess(); 
-    }
-  };
+    //Start background process to poll devices, if any devices were present
+    this.log.info(`Frigidaire background polling process started. \nDevice will be polled each ${Math.floor((this.config.deviceRefresh / 60))} min(s) ${Math.floor((this.config.deviceRefresh % 60))} second(s).`);              
+    this.frig.startPollingProcess();     
+};
 
 // Find accessory with no association with frigidaire appliances and remove
 async orphanAccessory() {

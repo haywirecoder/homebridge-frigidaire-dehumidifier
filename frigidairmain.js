@@ -108,7 +108,7 @@ class Frigidaire extends EventEmitter {
         this.country =COUNTRY;
         this.brand =BRAND;
         this.sessionKey = null;
-        this.deviceRefreshTime = config.deviceRefreshTime || 30000; // default to 30 seconds, so we don't hammer their servers
+        this.deviceRefreshTime = config.deviceRefresh * 1000 || 60000; // default to 1 min, so we don't hammer their servers
         this.attempts = 0;
         this.lastUpdate = null;  
         this.isBusy = false;     
@@ -120,35 +120,16 @@ class Frigidaire extends EventEmitter {
         // Authenticate user
         try {
             const authResponse = await this.authenticate();
-            return authResponse;
+            // if login successful, get devices/appliances
+            if (authResponse) await this.discoverDevices();
+            else return false;
+            return true;
 
         }  catch (err) {
-                
                 this.log.error('Frigidair initization Error: ',err);
                 return false;
 
         }
-
-        /*var device = {};
-        device.deviceId = '11904976-443E071C2589';
-        device.serialNumber = '11904976';
-        device.name = 'Basement Dehumidifier ';
-        device.mac = '443E071C2589';
-        device.pnc ='950133061';
-        device.elc = '00';
-        device.cpv = '00';
-        device.fanMode = 4;
-        device.filterStatus = 0;
-        device.roomHumidity = 55;
-        device.targetHumidity = 70;
-        device.bucketStatus = 0;
-        device.clearAirMode = 0;
-        device.childMode = 0;
-        device.firmwareVersion = 'v1.9.1_srac';
-        device.mode = 0;
-        device.destination = 'DH1';
-        this.frig_devices.push(device);*/
-        
     }
 
     // Initial login
@@ -195,17 +176,16 @@ class Frigidaire extends EventEmitter {
         var uri = "/config-files/haclmap/latest_version";
 
         if ((this.sessionKey == null) || (this.sessionKey == "")) return false;
-
-        const sessionValidationResponse = await this.getRequest(uri);
-        if (sessionValidationResponse.status_code != 200) return false;
+      
+        var sessionValidationResponse = await this.getRequest(uri);
+        if ((!sessionValidationResponse) || (sessionValidationResponse == "")) return false;
         return true;
     };
 
     // Discover devices in account and built out the the array
     async discoverDevices () {
         var uri = '/user-appliance-reg/users/' + this.auth_token.username + '/appliances?country=' + COUNTRY + '&includeFields=true';
-        if (!(await this.isValidSession())) return; 
-    
+      
         const deviceJSON = await this.getRequest(uri);
         // create device list from user profile.
         for(var i in deviceJSON) {
@@ -236,22 +216,19 @@ class Frigidaire extends EventEmitter {
         // Performing update don't allow other processes
         if (this.isBusy) return;
         this.isBusy = true;
-        try {
-            for (var i = 0; i < this.frig_devices.length; i++) {
-                let currentUpdateDate = this.frig_devices[i].lastupdate;
-                let deviceResp = await this.getDetailForDevice(i);
-                
-                if (deviceResp){
-                    // change were detected updata device data elements and trigger updata.
-                    if (currentUpdateDate != this.frig_devices[i].lastupdate) {
-                    this.emit(this.frig_devices[i].deviceid, {
-                        device: this.frig_devices[i]
-                    });}
-                }
+        var currentUpdateDate;
+        var deviceResp;
+        for (var i = 0; i < this.frig_devices.length; i++) {
+            currentUpdateDate = this.frig_devices[i].lastupdate;
+            deviceResp = await this.getDetailForDevice(i);
+            
+            if (deviceResp){
+                // change were detected updata device data elements and trigger updata.
+                if (currentUpdateDate != this.frig_devices[i].lastupdate) {
+                this.emit(this.frig_devices[i].deviceId, {
+                    device: this.frig_devices[i]
+                });}
             }
-        } 
-        catch (err) {
-            this.log.error('Frigidairfresh Error: ',err);
         }
         // Process completed
         this.isBusy = false;
@@ -317,7 +294,7 @@ class Frigidaire extends EventEmitter {
                                  + this.frig_devices[deviceIndex].clearAirMode
                                  + this.frig_devices[deviceIndex].bucketStatus
                                  + this.frig_devices[deviceIndex].targetHumidity;
-        this.log("hash: ", hasMonitoredValuesChanged);
+        
         if (hasMonitoredValuesChanged != this.frig_devices[deviceIndex].monitoredValues) {
             this.frig_devices[deviceIndex].monitoredValues = hasMonitoredValuesChanged;
             this.frig_devices[deviceIndex].lastupdate = Date.now();
@@ -358,19 +335,15 @@ class Frigidaire extends EventEmitter {
           // Is request out of bounds base on discovered device?
         if(this.frig_devices.length <= deviceIndex) return false;
         var returnCode = 0;
-        try{
-            if (onValue) returnCode = await this.sendDeviceCommmand(deviceIndex,POWER_MODE,POWER_ON) 
-            else returnCode = await this.sendDeviceCommmand(deviceIndex,POWER_MODE,POWER_OFF) 
-            if (returnCode == 200)
-            {
-                this.frig_devices[deviceIndex].mode = onValue;
-                return onValue;
-            }
-        }
-        catch(err)
+        
+        if (onValue) returnCode = await this.sendDeviceCommmand(deviceIndex,POWER_MODE,POWER_ON) 
+        else returnCode = await this.sendDeviceCommmand(deviceIndex,POWER_MODE,POWER_OFF) 
+        if (returnCode == 200)
         {
-            this.log.error('Dehumidifier Mode API endpint return error: ', err);
+            this.frig_devices[deviceIndex].mode = onValue;
+            return onValue;
         }
+    
         return -1;
     }
 
@@ -382,18 +355,14 @@ class Frigidaire extends EventEmitter {
         // Is valudate mode?
         if(!DEHUMIDIFIERMODES.has(DehumMode)) return false;
         var returnCode = 0; 
-        try{
-            returnCode = await this.sendDeviceCommmand(deviceIndex,MODE,DehumMode);
-            if (returnCode == 200)
-            {
-                this.frig_devices[deviceIndex].mode = DehumMode;
-                return DehumMode;
-            }
-        }
-        catch (err)
+        
+        returnCode = await this.sendDeviceCommmand(deviceIndex,MODE,DehumMode);
+        if (returnCode == 200)
         {
-            this.log.error('Dehumidifier Mode API endpint return error: ', err);
+            this.frig_devices[deviceIndex].mode = DehumMode;
+            return DehumMode;
         }
+        
         return -1;
     }
 
@@ -405,19 +374,14 @@ class Frigidaire extends EventEmitter {
          // Is valudate mode?
          if(!DEHUMIDIFIERFANMODES.has(fanModeValue)) return false;
         var returnCode = 0;
-        try{
-            // check if applicance is in auto model? If auto fam mode is automaticly and can't be adjusted.
-            if (this.frig_devices[deviceIndex].mode == DEHMODE_AUTO) return false;
-            returnCode = await this.sendDeviceCommmand(deviceIndex,FAN_MODE, fanModeValue);
-            if (returnCode == 200)
-            {
-                this.frig_devices[deviceIndex].fanMode = fanModeValue;
-                return fanModeValue;
-            }
-        }
-        catch(err)
-        {
-            this.log.error('Dehumidifier Fan Mode API endpint return error: ', err);
+        
+        // check if applicance is in auto model? If auto fam mode is automaticly and can't be adjusted.
+        if (this.frig_devices[deviceIndex].mode == DEHMODE_AUTO) return false;
+        returnCode = await this.sendDeviceCommmand(deviceIndex,FAN_MODE, fanModeValue);
+        if (returnCode == 200)
+         {
+            this.frig_devices[deviceIndex].fanMode = fanModeValue;
+            return fanModeValue;
         }
         return -1;
     }
@@ -433,19 +397,13 @@ class Frigidaire extends EventEmitter {
             // round to nearest multiple of 5.
             humidityLevel = Math.ceil(humidityLevel/5)*5;
             // If mode is not in auto mode thatn change set humity level. 
-            try {
-                // check if appliance is in auto model? If auto fam mode is automaticly and can't be adjusted.
-                if (this.frig_devices[deviceIndex].mode == DEHMODE_AUTO) return false;
-                returnCode = await this.sendDeviceCommmand(deviceIndex,TARGET_HUMIDITY, humidityLevel);
-                if (returnCode == 200)
-                {
-                    this.frig_devices[deviceIndex].targetHumidity = humidityLevel;
-                    return humidityLevel;
-                }
-            }
-            catch(err)
+            // check if appliance is in auto model? If auto fam mode is automaticly and can't be adjusted.
+            if (this.frig_devices[deviceIndex].mode == DEHMODE_AUTO) return false;
+            returnCode = await this.sendDeviceCommmand(deviceIndex,TARGET_HUMIDITY, humidityLevel);
+            if (returnCode == 200)
             {
-                this.log.error('Dehumidifier Humidity Level API endpint return error: ', err);
+                this.frig_devices[deviceIndex].targetHumidity = humidityLevel;
+                return humidityLevel;
             }
         }
         this.log.error('Dehumidifier Humidity Level not within acceptable range. Value must be between 35 and 85.', err);
@@ -458,19 +416,16 @@ class Frigidaire extends EventEmitter {
         // Is a dehumidfifer appliance?
         if(this.frig_devices[deviceIndex].destination != DEHUMIDIFIER) return false;
         var returnCode = 0;
+
         // Send command to API endpoint base on user selection
-        try{
-            if (modeValue = CLEANAIR_ON) returnCode = await this.sendDeviceCommmand(deviceIndex,CLEAN_AIR_MODE,CLEANAIR_ON) 
-            else returnCode = await this.sendDeviceCommmand(deviceIndex,CLEAN_AIR_MODE,CLEANAIR_OFF) 
-            if (returnCode == 200)
-             {
-                this.frig_devices[deviceIndex].clearAirMode = modeValue;
-                return modeValue;
-             }
+        if (modeValue == CLEANAIR_ON) returnCode = await this.sendDeviceCommmand(deviceIndex,CLEAN_AIR_MODE,CLEANAIR_ON);
+        else returnCode = await this.sendDeviceCommmand(deviceIndex,CLEAN_AIR_MODE,CLEANAIR_OFF);
+        if (returnCode == 200)
+        {
+            this.frig_devices[deviceIndex].clearAirMode = modeValue;
+            return modeValue;
         }
-        catch (err) {
-            this.log.error('Dehumidifier AirPurifier API endpint return error: ', err);
-        }
+        
         return -1;
     }
 
@@ -481,18 +436,14 @@ class Frigidaire extends EventEmitter {
         if(this.frig_devices[deviceIndex].destination != DEHUMIDIFIER) return false;
         var returnCode = 0;
         // Send command to API endpoint base on user selection 
-        try{
-            if (modeValue == CHILDMODE_ON) returnCode = await this.sendDeviceCommmand(deviceIndex,CHILD_MODE,CHILDMODE_ON) 
-            else returnCode = await this.sendDeviceCommmand(deviceIndex,CHILD_MODE,CHILDMODE_OFF) 
-            if (returnCode == 200)
-            {
-                this.frig_devices[deviceIndex].childMode = modeValue;
-                return modeValue;
-            } 
+        if (modeValue == CHILDMODE_ON) returnCode = await this.sendDeviceCommmand(deviceIndex,CHILD_MODE,CHILDMODE_ON); 
+        else returnCode = await this.sendDeviceCommmand(deviceIndex,CHILD_MODE,CHILDMODE_OFF); 
+        if (returnCode == 200)
+        {
+            this.frig_devices[deviceIndex].childMode = modeValue;
+            return modeValue;
         } 
-        catch (err) {
-            this.log.error('Dehumidifier Childlock API endpint return error: ', err);
-        }
+       
         return -1;
     }
 
@@ -526,12 +477,13 @@ class Frigidaire extends EventEmitter {
             "version": "ad"
         }
 
-        if (!this.isLoggedIn()) {
+        if (!(await this.isValidSession())) {
            // session is expired or not login, get new session key
             const authResponse = await this.authenticate();
             if (!authResponse) return -1;
         }
         
+        // Block other activities during updates
         this.isBusy = true;
         try {
             const response = await superagent
@@ -565,7 +517,7 @@ class Frigidaire extends EventEmitter {
     startPollingProcess()
     {
         // Set time to refresh devices
-       this.deviceRefreshHandle = setTimeout(() => this.backgroundRefresh(), this.deviceRefreshTime); 
+        this.deviceRefreshHandle = setTimeout(() => this.backgroundRefresh(), this.deviceRefreshTime); 
      
     };
 
@@ -577,22 +529,22 @@ class Frigidaire extends EventEmitter {
             this.deviceRefreshHandle = null;
         }
         if (this.isBusy) {
-           this.log.warn("Another process is already updating. \n Skipping Interval Update.")
+           this.log.warn("Another process is already updating. Skipping Interval Update.")
            this.deviceRefreshHandle = setTimeout(() => this.backgroundRefresh(), this.deviceRefreshTime); 
            return;
-       }
-       // Do we have valid sessions? 
-       var authResponse = true;
-       if (!(await this.isValidSession())) {
+        }
+        // Do we have valid sessions? 
+        var authResponse = true;
+        if (!(await this.isValidSession())) {
            // session is expired or not login, get new session key
             authResponse = await this.authenticate();
-       }
-       // Update data elements
-       if (authResponse) await this.refreshDevices();
+        }
+        // Update data elements
+        this.log("Refreshing");
+        if (authResponse) await this.refreshDevices();
       
-       // Set timer to refresh devices
-      this.deviceRefreshHandle = setTimeout(() => this.backgroundRefresh(), this.deviceRefreshTime); 
-      
+        // Set timer to refresh devices
+        this.deviceRefreshHandle = setTimeout(() => this.backgroundRefresh(), this.deviceRefreshTime); 
     }
 }
 
