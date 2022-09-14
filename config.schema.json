@@ -17,7 +17,7 @@
           "title": "Authorization",
           "type": "object",
           "properties": {
-            "email": {
+            "username": {
               "title": "Frigidaire Appliance Username",
               "type": "string",
               "required": true
@@ -39,7 +39,7 @@
         },
         "dehumidifierMode": {
           "title": "Dehumidifying Mode",
-          "type": "string",
+          "type": "integer",
           "description": "Homekit only has two mode dehumidifying modes <i>auto</i> and <i>dehumidifying</i>. When dehumidifying is selected this select will be map to Frigidaire appliance mode. ",
           "required": true,
           "default": "DRY",
@@ -65,7 +65,7 @@
           ]
           
         },
-        "enableAir": {
+        "enableAirFilter": {
           "title": "Show Air Purifier Accessory",
           "type": "boolean",
           "default": true,
@@ -88,7 +88,7 @@
           "auth.password",
           "deviceRefresh",
           "dehumidifierMode",
-          "enableAir"
+          "enableAirFilter"
         ]
       },
       {

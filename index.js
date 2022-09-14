@@ -6,6 +6,8 @@ const airpurifierAppliance = require('./accessories/airpurifier');
 const PLUGIN_NAME = 'homebridge-frigidaire-dehumidifier';
 const PLATFORM_NAME = 'FrigidaireAppliance';
 
+const CLEAN_AIR_MODE = '1004';
+
 
 var Service, Characteristic, HomebridgeAPI, UUIDGen;
 
@@ -18,7 +20,6 @@ module.exports = function(homebridge) {
   homebridge.registerPlatform(PLUGIN_NAME, PLATFORM_NAME, FrigidaireAppliancePlatform);
 }
 
-const CLEAN_AIR_MODE = '1004';
 
 class FrigidaireAppliancePlatform {
   constructor(log, config, api) {
@@ -87,7 +88,7 @@ class FrigidaireAppliancePlatform {
           deviceAccessory.setAccessory(foundAccessory);
       }
       // if clean air enable create airpurifier tile to control functionality.
-      if (this.config.enableAir) {
+      if (this.config.enableAirFilter) {
 
           var deviceAccessoryAir = new airpurifierAppliance(this.frig, i, currentDevice, this.config, this.log, Service, Characteristic, UUIDGen, deviceAccessory);
           // check the accessory was not restored from cache
@@ -125,7 +126,7 @@ async orphanAccessory() {
     // determine if accessory is currently a device in frigidaire account, thus should remain
     foundAccessory = this.frig.frig_devices.find(device => UUIDGen.generate(device.deviceId.toString()) === accessory.UUID)
     if (!foundAccessory) {
-      if (this.config.enableAir) {
+      if (this.config.enableAirFilter) {
         // check for additional accessories that is link to this device.
           foundAccessory = this.frig.frig_devices.find(device => UUIDGen.generate(device.deviceId.toString()+ "-" + CLEAN_AIR_MODE) === accessory.UUID)
           if (!foundAccessory) 

@@ -163,7 +163,10 @@ class Frigidaire extends EventEmitter {
             } 
             else {
                 this.sessionKey = response.body.data.sessionKey;
-                if (this.sessionKey != "") return true;
+                if (this.sessionKey != "") {
+                    this.log('Login Successful...'); 
+                    return true;
+                }
             }
           } 
           catch (err) {
@@ -189,7 +192,7 @@ class Frigidaire extends EventEmitter {
         const deviceJSON = await this.getRequest(uri);
         // create device list from user profile.
         for(var i in deviceJSON) {
-            if (this.excludedDevices.includes(deviceJSON[i]['nickname'])) {
+            if (this.excludedDevices.includes(deviceJSON[i]['appliance_id'])) {
                 this.log(`Executing Device with name: '${deviceJSON[i]['nickname']}'`);
                 
             } else {
@@ -323,6 +326,7 @@ class Frigidaire extends EventEmitter {
                 this.log.error("Frigidair Get Error: " + response.body.code + " " + response.body.message);
              } 
             else { 
+                this.log.debug('Get Request successful',response.body.message );
                 return (response.body.data);
             }
           } 
@@ -478,6 +482,8 @@ class Frigidaire extends EventEmitter {
         }
 
         if (!(await this.isValidSession())) {
+
+           this.log.debug('Send command detect login no longer valid. Attempting to re-login',);
            // session is expired or not login, get new session key
             const authResponse = await this.authenticate();
             if (!authResponse) return -1;
@@ -491,13 +497,13 @@ class Frigidaire extends EventEmitter {
                                 .send(postBody)
                                 .set(headers)
                                 .disableTLSCerts();
-            console.log(response.statusCode);
             if (response.statusCode != 200) {
-                console.error('Frigidair post Error: ' + response.body.code + ' ' + response.body.message);
+                this.log.error('Frigidair post Error: ' + response.body.code + ' ' + response.body.message);
             }
             else
                {
                 this.isBusy = false;
+                this.log.debug('Post Command successful', response.body.message);
                 return response.statusCode;
                }
         }
@@ -537,10 +543,10 @@ class Frigidaire extends EventEmitter {
         var authResponse = true;
         if (!(await this.isValidSession())) {
            // session is expired or not login, get new session key
+           this.log.debug('Background refreshing detect login no longer valid. Attempting to re-login',);
             authResponse = await this.authenticate();
         }
         // Update data elements
-        this.log("Refreshing");
         if (authResponse) await this.refreshDevices();
       
         // Set timer to refresh devices
