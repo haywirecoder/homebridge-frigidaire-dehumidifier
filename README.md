@@ -5,7 +5,6 @@
  
 <img src="https://github.com/homebridge/branding/raw/master/logos/homebridge-wordmark-logo-vertical.png" width="150">
 
-
 </p>
 
 
@@ -13,11 +12,10 @@
 An Homebridge plug-in to integrate the Frigidaire's connected dehumidifier with HomeKit. It monitors and control devices via the Frigidaire unofficial cloud API. Thanks to the Frigidaire Python API  https://github.com/bm1549/frigidaire developer, this module uses the logic gain from reviewing those libraries/code.
 
 ## Limitation:
-* This module works with Frigidaire connected Dehumidifier. While the code can be upgraded to support other Frigidaire appliances, I don't own those appliances so I do not have method to develop or validating functionality. 
 * This module will poll for the status of the various components based frequency provided in the configuration file. No realtime notification is provided.
 
 ## Know Issues:
-* Water level hasn't been implement its on TODO
+* Water level hasn't been implement it is on the TO-DO
 
 ## Configuration options
 
