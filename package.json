@@ -7,10 +7,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/haywirecoder/homebridge-batterytender"
+    "url": "https://github.com/haywirecoder/homebridge-frigidaire-dehumidifier"
   },
   "bugs": {
-    "url": "https://github.com/haywirecoder/homebridge-batterytender/issues"
+    "url": "https://github.com/haywirecoder/homebridge-frigidaire-dehumidifier/issues"
   },
   "engines": {
     "homebridge": ">=1.3.4",
