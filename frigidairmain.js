@@ -77,10 +77,9 @@ const COUNTRY = 'US'
 class Frigidaire extends EventEmitter {
     auth_token = {};
     excludedDevices = []
-    log;
+    log = {};
     deviceRefreshHandle;
     deviceRefreshTime;
-    debug;
     clientId;
     userAgent;
     basicAuthToken;
@@ -93,9 +92,10 @@ class Frigidaire extends EventEmitter {
     frig_devices = [];
     lastUpdate;
     updateTimer = [];
+    printAllDeviceDetail;
 
 
-    constructor(log, config) {
+    constructor(log, config, printAllDeviceDetail = false) {
         super();
         this.log = log;
         this.excludedDevices = config.excludedDevices || [];
@@ -112,11 +112,12 @@ class Frigidaire extends EventEmitter {
         this.attempts = 0;
         this.lastUpdate = null;  
         this.isBusy = false;     
+        this.printAllDeviceDetail = printAllDeviceDetail;
     };
 
-    // Initization routine
+    // Initialization routine
     async init() {
-
+        
         // Authenticate user
         try {
             const authResponse = await this.authenticate();
@@ -126,11 +127,12 @@ class Frigidaire extends EventEmitter {
             return true;
 
         }  catch (err) {
-                this.log.error('Frigidair initization Error: ',err);
+                this.log.error('Frigidaire Initialization Error: ',err);
                 return false;
 
         }
     }
+
 
     // Initial login
     async authenticate() {
@@ -158,19 +160,20 @@ class Frigidaire extends EventEmitter {
                                 .set(headers)
                                 .set('accept', 'json')
                                 .disableTLSCerts();
+           
             if (response.body.status == 'ERROR' && response.body.code != 'ECP0000') {
-                this.log.error("Frigidair Login Error: " + response.body.code + " " + response.body.message);
+                this.log.error("Frigidaire Login Error: " + response.body.code + " " + response.body.message);
             } 
             else {
                 this.sessionKey = response.body.data.sessionKey;
                 if (this.sessionKey != "") {
-                    this.log('Login Successful...'); 
+                    this.log.info('Login Successful...'); 
                     return true;
                 }
             }
           } 
           catch (err) {
-                this.log.error("Frigidair Login Error: ", err.response.body.code + ' ' + err.response.body.message);
+                this.log.error("Frigidaire Login Error: ", err.response.body.code + ' ' + err.response.body.message);
                 return false;
          }
     }
@@ -192,6 +195,9 @@ class Frigidaire extends EventEmitter {
         const deviceJSON = await this.getRequest(uri);
         // create device list from user profile.
         for(var i in deviceJSON) {
+            // used for command line tool to dump device data
+            if (this.printAllDeviceDetail) this.log.info(deviceJSON);
+
             if (this.excludedDevices.includes(deviceJSON[i]['appliance_id'])) {
                 this.log(`Executing Device with name: '${deviceJSON[i]['nickname']}'`);
                 
@@ -204,6 +210,7 @@ class Frigidaire extends EventEmitter {
                 device.pnc = deviceJSON[i]['pnc']; // Product code
                 device.elc = deviceJSON[i]['elc'];
                 device.cpv = deviceJSON[i]['cpv'];
+                device.destination = "";
                 device.monitoredValues = "";
                 device.lastUpdate = Date.now();
                 this.frig_devices.push(device);
@@ -226,7 +233,7 @@ class Frigidaire extends EventEmitter {
             deviceResp = await this.getDetailForDevice(i);
             
             if (deviceResp){
-                // change were detected updata device data elements and trigger updata.
+                // change were detected update device data elements and trigger update.
                 if (currentUpdateDate != this.frig_devices[i].lastupdate) {
                 this.emit(this.frig_devices[i].deviceId, {
                     device: this.frig_devices[i]
@@ -240,9 +247,13 @@ class Frigidaire extends EventEmitter {
     async getDetailForDevice(deviceIndex) {
         const DETAILENDPOINT = '/elux-ms/appliances/latest'
         var urlDeviceString = "?pnc=" + this.frig_devices[deviceIndex].pnc + "&elc=" + this.frig_devices[deviceIndex].elc + "&sn=" + this.frig_devices[deviceIndex].serialNumber + "&mac=" + this.frig_devices[deviceIndex].mac + "&includeSubcomponents=true";
-        var uri = DETAILENDPOINT + urlDeviceString
+        var uri = DETAILENDPOINT + urlDeviceString;
+
         try {
             const detailJSON = await this.getRequest(uri);
+            // used for command line tool to dump device data
+            if (this.printAllDeviceDetail) this.log.info(detailJSON);
+            // store just critical data elements
             for (var i = 0; i < detailJSON.length; i++) { 
                 switch (detailJSON[i]['haclCode']) {
                     case HUMIDITY_ROOM:
@@ -289,7 +300,7 @@ class Frigidaire extends EventEmitter {
             this.log.error('Frigidaire device detail Error: ',err);
             return false;
         }
-        // Determine if anything has changed since last get, if yes unpdate lastupdate date.
+        // Determine if anything has changed since last get, if yes update lastupdate date.
         var hasMonitoredValuesChanged = "" + this.frig_devices[deviceIndex].roomHumidity 
                                  + this.frig_devices[deviceIndex].mode 
                                  + this.frig_devices[deviceIndex].filterStatus 
@@ -323,10 +334,10 @@ class Frigidaire extends EventEmitter {
                                 .set(headers)
                                 .disableTLSCerts();
             if (response.body.status == 'ERROR' && response.body.code != 'ECP0000') {
-                this.log.error("Frigidair Get Error: " + response.body.code + " " + response.body.message);
+                this.log.error("Frigidaire Get Error: " + response.body.code + " " + response.body.message);
              } 
             else { 
-                this.log.debug('Get Request successful',response.body.message );
+                this.log.debug('Get Request complete',response.body.message );
                 return (response.body.data);
             }
           } 
@@ -354,9 +365,9 @@ class Frigidaire extends EventEmitter {
     async setDehumidifierMode(deviceIndex, DehumMode = DEHMODE_AUTO){
         // Is request out of bounds base on discovered device?
         if(this.frig_devices.length <= deviceIndex) return false;
-        // Is a dehumidfifer appliance?
+        // Is a dehumidifier appliance?
         if(this.frig_devices[deviceIndex].destination != DEHUMIDIFIER) return false;
-        // Is valudate mode?
+        // Is validated mode?
         if(!DEHUMIDIFIERMODES.has(DehumMode)) return false;
         var returnCode = 0; 
         
@@ -373,13 +384,13 @@ class Frigidaire extends EventEmitter {
     async setDehumidifierFanMode(deviceIndex,fanModeValue = FANMODE_LOW){
           // Is request out of bounds base on discovered device?
         if(this.frig_devices.length <= deviceIndex) return false;
-        // Is a dehumidfifer appliance?
+        // Is a dehumidifier appliance?
         if(this.frig_devices[deviceIndex].destination != DEHUMIDIFIER) return false;
-         // Is valudate mode?
+         // Is validate mode?
          if(!DEHUMIDIFIERFANMODES.has(fanModeValue)) return false;
         var returnCode = 0;
         
-        // check if applicance is in auto model? If auto fam mode is automaticly and can't be adjusted.
+        // check if applicance is in auto model? If auto fam mode is automatically and can't be adjusted.
         if (this.frig_devices[deviceIndex].mode == DEHMODE_AUTO) return false;
         returnCode = await this.sendDeviceCommmand(deviceIndex,FAN_MODE, fanModeValue);
         if (returnCode == 200)
@@ -393,15 +404,15 @@ class Frigidaire extends EventEmitter {
     async setDehumidifierRelativeHumidity(deviceIndex, humidityLevel = 50){
         // Is request out of bounds base on discovered device?
         if(this.frig_devices.length <= deviceIndex) return false;
-        // Is a dehumidfifer appliance?
+        // Is a dehumidifier appliance?
         if(this.frig_devices[deviceIndex].destination != DEHUMIDIFIER) return false;
         var returnCode = 0;
         // determine if the humidity level is within acceptable range.
         if (humidityLevel >= 35 && humidityLevel <= 85) {
             // round to nearest multiple of 5.
             humidityLevel = Math.ceil(humidityLevel/5)*5;
-            // If mode is not in auto mode thatn change set humity level. 
-            // check if appliance is in auto model? If auto fam mode is automaticly and can't be adjusted.
+            // If mode is not in auto mode that change set humidity level. 
+            // check if appliance is in auto model? If auto fam mode is automatically and can't be adjusted.
             if (this.frig_devices[deviceIndex].mode == DEHMODE_AUTO) return false;
             returnCode = await this.sendDeviceCommmand(deviceIndex,TARGET_HUMIDITY, humidityLevel);
             if (returnCode == 200)
@@ -417,7 +428,7 @@ class Frigidaire extends EventEmitter {
     async setDehumidifierAirPurifier(deviceIndex,modeValue = CLEANAIR_OFF){
          // Is request out of bounds base on discovered device?
         if(this.frig_devices.length <= deviceIndex) return false;
-        // Is a dehumidfifer appliance?
+        // Is a dehumidifier appliance?
         if(this.frig_devices[deviceIndex].destination != DEHUMIDIFIER) return false;
         var returnCode = 0;
 
@@ -436,7 +447,7 @@ class Frigidaire extends EventEmitter {
     async setDehumidifierChildLock(deviceIndex, modeValue = CHILDMODE_OFF){
            // Is request out of bounds base on discovered device?
         if(this.frig_devices.length <= deviceIndex) return false;
-        // Is a dehumidfifer appliance?
+        // Is a dehumidifier appliance?
         if(this.frig_devices[deviceIndex].destination != DEHUMIDIFIER) return false;
         var returnCode = 0;
         // Send command to API endpoint base on user selection 
@@ -483,7 +494,7 @@ class Frigidaire extends EventEmitter {
 
         if (!(await this.isValidSession())) {
 
-           this.log.debug('Send command detect login no longer valid. Attempting to re-login',);
+           this.log.warn('Send command detect login no longer valid. Attempting to re-login',);
            // session is expired or not login, get new session key
             const authResponse = await this.authenticate();
             if (!authResponse) return -1;
@@ -498,17 +509,17 @@ class Frigidaire extends EventEmitter {
                                 .set(headers)
                                 .disableTLSCerts();
             if (response.statusCode != 200) {
-                this.log.error('Frigidair post Error: ' + response.body.code + ' ' + response.body.message);
+                this.log.error('Frigidaire post Error: ' + response.body.code + ' ' + response.body.message);
             }
             else
                {
                 this.isBusy = false;
-                this.log.debug('Post Command successful', response.body.message);
+                this.log.debug('Post Command complete', response.body.message);
                 return response.statusCode;
                }
         }
           catch (err) {
-            this.log.error('Frigidair post Error: ', err.response.body.code +' ' + err.response.body.message);
+            this.log.error('Frigidaire post Error: ', err.response.body.code +' ' + err.response.body.message);
          } 
          this.isBusy = false;
          return -1;
@@ -543,7 +554,7 @@ class Frigidaire extends EventEmitter {
         var authResponse = true;
         if (!(await this.isValidSession())) {
            // session is expired or not login, get new session key
-           this.log.debug('Background refreshing detect login no longer valid. Attempting to re-login',);
+           this.log.warn('Background refreshing detect login no longer valid. Attempting to re-login',);
             authResponse = await this.authenticate();
         }
         // Update data elements
