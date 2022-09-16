@@ -16,7 +16,7 @@ An Homebridge plug-in to integrate the Frigidaire's connected dehumidifier with 
 
 ## Know Issues:
 * Water level hasn't been implement it is on the TO-DO
-* Occasionally the following error will appear on the log:  "ECP2004 Auth API error: Request failed with status code 401". This occurs when  sessionkey expires. The plug-in will auto re-login to obtain a new sessionkey. Once the time length of sessionkey validity is determine the plug will be upgraded with a proactive re-login to reduce the appearance of this error.
+* Occasionally the following error will appear on the log:  "ECP2004 Auth API error: Request failed with status code 401". This occurs when  sessionkey expires. The plug-in will auto re-login to obtain a new sessionkey. Once the time length of sessionkey is determine the plug will be upgraded with a proactive re-login to reduce the appearance of this error.
 
 
 ## Configuration options
