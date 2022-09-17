@@ -1,7 +1,7 @@
 
 const EventEmitter = require('events');
 const superagent = require('superagent');
-const randomstring = require('randomstring');
+const uuid4 = require('uuid4');
 
 
 // URL constant for retrieving data
@@ -74,7 +74,7 @@ const COUNTRY = 'US'
  const DEHUMIDIFIERMODES = new Set([DEHMODE_DRY,DEHMODE_AUTO,DEHMODE_CONTINUOUS,DEHMODE_QUIET]);
  const DEHUMIDIFIERFANMODES = new Set([FANMODE_MED,FANMODE_LOW,FANMODE_HIGH]);
 
- FRIGIDAIRE_SESSIONKEY_TIMEOUT = 39600000 // 12 hours seems to be the lifetime of a sessions key. Default to refresh at 11th hour.
+ FRIGIDAIRE_SESSIONKEY_TIMEOUT = 32400000 // Session valid for 12 hours. Default to refresh key at the 9th hour (75%).
 
 class Frigidaire extends EventEmitter {
     auth_token = {};
@@ -107,7 +107,7 @@ class Frigidaire extends EventEmitter {
         this.clientId = CLIENTID;
         this.userAgent = USERAGENT;
         this.basicAuthToken = BASICAUTHTOKEN;
-        this.deviceId = this.GenerateId();
+        this.deviceId = uuid4();
         this.country =COUNTRY;
         this.brand =BRAND;
         this.sessionKey = null;
@@ -129,8 +129,8 @@ class Frigidaire extends EventEmitter {
                 this.log.info('Login Successful.'); 
                 await this.discoverDevices();
                 // Set time to refresh session key
-                //this.log.info(`Frigidaire Info: Session Key will refresh in ${Math.floor((this.sessionKeyRefreshTime / (1000 * 60 * 60)) % 24)} hour(s) and ${Math.floor((this.sessionKeyRefreshTime / (1000 * 60 )) % 60)} min(s).`);
-                //this.sessionKeyRefreshHandle = setTimeout(() => this.refreshSessionKey(), this.sessionKeyRefreshTime); 
+                this.log.info(`Frigidaire Session Key will be refresh in ${Math.floor((this.sessionKeyRefreshTime / (1000 * 60 * 60)) % 24)} hour(s) and ${Math.floor((this.sessionKeyRefreshTime / (1000 * 60 )) % 60)} min(s).`);
+                this.sessionKeyRefreshHandle = setTimeout(() => this.refreshSessionKey(), this.sessionKeyRefreshTime); 
             }
             else return false;
 
@@ -144,8 +144,8 @@ class Frigidaire extends EventEmitter {
         }
     }
 
-
-    // Initial login
+    // Authenticates with the Frigidaire API. This will be used re-authenticate if the session key is deemed invalid and will
+    // throw an exception if the authentication request fails or returns an unexpected response.
     async authenticate() {
 
         var headers = {
@@ -165,6 +165,7 @@ class Frigidaire extends EventEmitter {
 
         this.log.debug('Attemping to login...');
         var authUrl = APIURL + '/authentication/authenticate';
+        this.isBusy = true;
         try {
             const response = await superagent
                                 .post(authUrl)
@@ -179,6 +180,7 @@ class Frigidaire extends EventEmitter {
             else {
                 this.sessionKey = response.body.data.sessionKey;
                 if (this.sessionKey != "") {
+                    this.isBusy = false;
                     this.log.debug('Current Session Key set to: ', this.sessionKey);
                     return true;
                 }
@@ -186,10 +188,12 @@ class Frigidaire extends EventEmitter {
           } 
           catch (err) {
                 this.log.error("Frigidaire Login Error: ", err.response.body.code + ' ' + err.response.body.message);
+                this.isBusy = false;
                 return false;
          }
     }
 
+    // Tests for successful connectivity to the Frigidaire server, to lightweight end point
     async isValidSession() {
         var uri = "/config-files/haclmap/latest_version";
 
@@ -255,6 +259,7 @@ class Frigidaire extends EventEmitter {
         // Process completed remove blocker to other activies
         this.isBusy = false;
     }
+
     // Uses the Frigidaire API to fetch details for a given appliance
     async getDetailForDevice(deviceIndex) {
         const DETAILENDPOINT = '/elux-ms/appliances/latest'
@@ -330,6 +335,7 @@ class Frigidaire extends EventEmitter {
         return true;
     }   
 
+    //  Makes a get request to the Frigidaire API and parses the result
     async getRequest(endpoint) {
         
         var url = APIURL + endpoint;
@@ -475,6 +481,7 @@ class Frigidaire extends EventEmitter {
         return -1;
     }
 
+    // Executes any defined action on a given appliance. Will authenticate if the request fails
     async sendDeviceCommmand(deviceIndex,attribute, value) {
        
 
@@ -538,11 +545,6 @@ class Frigidaire extends EventEmitter {
          return -1;
     }
 
-    GenerateId () {
-        return randomstring.generate({ length: 2, charset: 'hex' }).toLowerCase() + '-' +
-            randomstring.generate({ length: 34, charset: 'hex' }).toLowerCase();
-    }
-
     // Start for periodic refresh of devices
     startPollingProcess()
     {
@@ -551,8 +553,8 @@ class Frigidaire extends EventEmitter {
      
     };
 
-    // The session key must be periodically refresh
-    // This method call the autenticate process to re-login and get new session key and store for later transaction.
+    // The session key must be periodically refresh. This method call the autenticate process to re-login and 
+    // new session key and store for later transaction.
     async refreshSessionKey() {
 
         // Clear prior session handles
@@ -569,7 +571,7 @@ class Frigidaire extends EventEmitter {
         this.sessionKeyRefreshHandle = setTimeout(() => this.refreshSessionKey(), this.sessionKeyRefreshTime); 
     }
 
-
+    // Uses the Frigidaire API to fetch details for a given appliance. Will authenticate if the request fails
     async backgroundRefresh() {
 
         if (this.deviceRefreshHandle) 
@@ -588,6 +590,7 @@ class Frigidaire extends EventEmitter {
            // session is expired or not login, get new session key
            this.log.warn('Background refreshing detected sessions is no longer valid, attempting to re-login.',);
             authResponse = await this.authenticate();
+            if (authResponse) this.log.info('re-login successful.')
         }
         // Update data elements
         if (authResponse) await this.refreshDevices();

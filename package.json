@@ -1,7 +1,7 @@
 {
   "name": "homebridge-frigidaire-dehumidifier",
   "displayName": "Homebridge Frigidaire Dehumidifier ",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Frigidaire Dehumidifier Appliance",
   "author": "Haywirecoder",
   "license": "MIT",
@@ -18,14 +18,14 @@
   },
   "dependencies": {
     "node-persist": "^2.1.0",
-    "randomstring": "^1.2.2",
-    "superagent": "^8.0.0"
+    "superagent": "^8.0.0",
+    "uuid4": "^2.0.3"
   },
   "keywords": [
     "homebridge-plugin",
     "homebridge",
     "homekit",
-    "Frigidaire",
-    "Dehumidifier"
+    "frigidaire",
+    "dehumidifier"
   ]
 }
