@@ -69,7 +69,15 @@
           "title": "Show Air Purifier Accessory",
           "type": "boolean",
           "default": true,
-          "description": "Expose an Air Purifier Accessory. May not be available in all models."
+          "description": "Expose an Air Purifier Accessory. May not be avaiable in all models."
+        },
+        "sessionKeyRefresh": {
+          "title": "Session Key Refresh Interval",
+          "type": "integer",
+          "default": 9,
+          "description": "Session key only valid for only 12 hours. Time interval to proactivity refresh session key to prevent a fault.",
+          "minimum": 1,
+          "maximum": 11
         },
         "excludedDevices": {
           "type": "array",
@@ -96,6 +104,10 @@
         "expandable": true,
         "title": "Advanced Options",
         "items": [
+          {
+            "key": "sessionKeyRefresh",
+            "description": "Session key only valid for only 12 hours. Time interval to proactivity refresh session key to prevent a fault."
+          },
           {
             "key": "excludedDevices",
             "title": "Excluded Devices",

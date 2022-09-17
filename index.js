@@ -35,13 +35,13 @@ class FrigidaireAppliancePlatform {
     if ((this.config.auth.username == "") || (this.config.auth.password == "") || (!this.config.auth.password) || (!this.config.auth.username))
     {
       this.log.error('Plug-in configuration error: Frigidaire Application authentication information not provided.');
-      // terminate plug-in initialization
+      // terminate plug-in initization
       return;
     }
   }
   catch(err) {
     this.log.error('Plug-in configuration error: Frigidaire Application authentication information not provided.');
-    // terminate plug-in initialization
+    // terminate plug-in initization
     return;
   }
   
@@ -54,11 +54,11 @@ class FrigidaireAppliancePlatform {
   api.on('didFinishLaunching', () => {
 
     this.initialLoad =  this.frig.init().then (() => {
-       // Once devices are discovered update Homekit accessories
+       // Once devices are discovered update Homekit assessories
       this.refreshAccessories();
     }).catch(err => {
-      this.log.error('Frigidaire Application initialization Failure:', err);
-      // terminate plug-in initialization
+      this.log.error('Frigidaire Application Initization Failure:', err);
+      // terminate plug-in initization
       return;
     });
     
@@ -77,7 +77,7 @@ class FrigidaireAppliancePlatform {
     for (var i = 0; i < this.frig.frig_devices.length; i++) {
 
       let currentDevice = this.frig.frig_devices[i];
-      // Confirm appliance is a dehumidifier
+      // Confirm appliance is a dehumidifer
       if (currentDevice.destination == DEHUMIDIFIER) {
         this.log(`Configuring ${currentDevice.name} with a Device ID: ${currentDevice.deviceId}`);
         let deviceAccessory = new dehumidifierAppliance(this.frig, i, currentDevice, this.config, this.log, Service, Characteristic, UUIDGen);
@@ -121,7 +121,7 @@ class FrigidaireAppliancePlatform {
     this.orphanAccessory();
     //Start background process to poll devices, if any devices were present
     if (homekit_appliance_count != 0) {
-      this.log.info(`Frigidaire background polling process started. \nDevice will be polled each ${Math.floor((this.config.deviceRefresh / 60))} min(s) ${Math.floor((this.config.deviceRefresh % 60))} second(s).`);              
+      this.log.info(`Frigidaire background update process started. Appliance status will be check each ${Math.floor((this.config.deviceRefresh / 60))} min(s) ${Math.floor((this.config.deviceRefresh % 60))} second(s).`);              
       this.frig.startPollingProcess();     
     }
 };
