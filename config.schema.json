@@ -69,7 +69,7 @@
           "title": "Show Air Purifier Accessory",
           "type": "boolean",
           "default": true,
-          "description": "Expose an Air Purifier Accessory. May not be avaiable in all models."
+          "description": "Expose an Air Purifier Accessory. May not be available in all models."
         },
         "excludedDevices": {
           "type": "array",
