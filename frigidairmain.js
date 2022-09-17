@@ -74,12 +74,16 @@ const COUNTRY = 'US'
  const DEHUMIDIFIERMODES = new Set([DEHMODE_DRY,DEHMODE_AUTO,DEHMODE_CONTINUOUS,DEHMODE_QUIET]);
  const DEHUMIDIFIERFANMODES = new Set([FANMODE_MED,FANMODE_LOW,FANMODE_HIGH]);
 
+ FRIGIDAIRE_SESSIONKEY_TIMEOUT = 39600000 // 12 hours seems to be the lifetime of a sessions key. Default to refresh at 11th hour.
+
 class Frigidaire extends EventEmitter {
     auth_token = {};
     excludedDevices = []
     log = {};
     deviceRefreshHandle;
+    sessionKeyRefreshHandle;
     deviceRefreshTime;
+    sessionKeyRefreshTime;
     clientId;
     userAgent;
     basicAuthToken;
@@ -92,10 +96,9 @@ class Frigidaire extends EventEmitter {
     frig_devices = [];
     lastUpdate;
     updateTimer = [];
-    printAllDeviceDetail;
 
 
-    constructor(log, config, printAllDeviceDetail = false) {
+    constructor(log, config) {
         super();
         this.log = log;
         this.excludedDevices = config.excludedDevices || [];
@@ -108,11 +111,11 @@ class Frigidaire extends EventEmitter {
         this.country =COUNTRY;
         this.brand =BRAND;
         this.sessionKey = null;
-        this.deviceRefreshTime = config.deviceRefresh * 1000 || 60000; // default to 1 min, so we don't hammer their servers
+        this.deviceRefreshTime = config.deviceRefresh * 1000 || 90000; // default to 90 secs, so we don't hammer their servers
         this.attempts = 0;
         this.lastUpdate = null;  
         this.isBusy = false;     
-        this.printAllDeviceDetail = printAllDeviceDetail;
+        this.sessionKeyRefreshTime = config.sessionKeyRefresh * 3600000 || FRIGIDAIRE_SESSIONKEY_TIMEOUT; // Sessionkey timeout provide in hours
     };
 
     // Initialization routine
@@ -122,8 +125,16 @@ class Frigidaire extends EventEmitter {
         try {
             const authResponse = await this.authenticate();
             // if login successful, get devices/appliances
-            if (authResponse) await this.discoverDevices();
+            if (authResponse) {
+                this.log.info('Login Successful.'); 
+                await this.discoverDevices();
+                // Set time to refresh session key
+                //this.log.info(`Frigidaire Info: Session Key will refresh in ${Math.floor((this.sessionKeyRefreshTime / (1000 * 60 * 60)) % 24)} hour(s) and ${Math.floor((this.sessionKeyRefreshTime / (1000 * 60 )) % 60)} min(s).`);
+                //this.sessionKeyRefreshHandle = setTimeout(() => this.refreshSessionKey(), this.sessionKeyRefreshTime); 
+            }
             else return false;
+
+            // If we got to here all Initialization were complete and return successful start
             return true;
 
         }  catch (err) {
@@ -152,6 +163,7 @@ class Frigidaire extends EventEmitter {
             "country": this.country,
         }
 
+        this.log.debug('Attemping to login...');
         var authUrl = APIURL + '/authentication/authenticate';
         try {
             const response = await superagent
@@ -167,7 +179,7 @@ class Frigidaire extends EventEmitter {
             else {
                 this.sessionKey = response.body.data.sessionKey;
                 if (this.sessionKey != "") {
-                    this.log.info('Login Successful...'); 
+                    this.log.debug('Current Session Key set to: ', this.sessionKey);
                     return true;
                 }
             }
@@ -195,8 +207,8 @@ class Frigidaire extends EventEmitter {
         const deviceJSON = await this.getRequest(uri);
         // create device list from user profile.
         for(var i in deviceJSON) {
-            // used for command line tool to dump device data
-            if (this.printAllDeviceDetail) this.log.info(deviceJSON);
+            // used for debugging -- Dump all devices discovered at start up
+            this.log.debug(deviceJSON);
 
             if (this.excludedDevices.includes(deviceJSON[i]['appliance_id'])) {
                 this.log(`Executing Device with name: '${deviceJSON[i]['nickname']}'`);
@@ -240,7 +252,7 @@ class Frigidaire extends EventEmitter {
                 });}
             }
         }
-        // Process completed
+        // Process completed remove blocker to other activies
         this.isBusy = false;
     }
     // Uses the Frigidaire API to fetch details for a given appliance
@@ -251,9 +263,10 @@ class Frigidaire extends EventEmitter {
 
         try {
             const detailJSON = await this.getRequest(uri);
-            // used for command line tool to dump device data
-            if (this.printAllDeviceDetail) this.log.info(detailJSON);
-            // store just critical data elements
+              // used for debugging -- Dump all detail each time called such as update and discovery
+            this.log.debug(detailJSON);
+
+            // store just monitored data elements
             for (var i = 0; i < detailJSON.length; i++) { 
                 switch (detailJSON[i]['haclCode']) {
                     case HUMIDITY_ROOM:
@@ -538,6 +551,25 @@ class Frigidaire extends EventEmitter {
      
     };
 
+    // The session key must be periodically refresh
+    // This method call the autenticate process to re-login and get new session key and store for later transaction.
+    async refreshSessionKey() {
+
+        // Clear prior session handles
+        if (this.sessionKeyRefreshHandle) 
+        {
+            clearTimeout(this.sessionKeyRefreshHandle);
+            this.sessionKeyRefreshHandle = null;
+        }
+
+        // Start the authentication process, no need to wait for return. 
+        this.authenticate();
+
+        // Set timer to refresh devices
+        this.sessionKeyRefreshHandle = setTimeout(() => this.refreshSessionKey(), this.sessionKeyRefreshTime); 
+    }
+
+
     async backgroundRefresh() {
 
         if (this.deviceRefreshHandle) 
@@ -554,7 +586,7 @@ class Frigidaire extends EventEmitter {
         var authResponse = true;
         if (!(await this.isValidSession())) {
            // session is expired or not login, get new session key
-           this.log.warn('Background refreshing detect login no longer valid. Attempting to re-login',);
+           this.log.warn('Background refreshing detected sessions is no longer valid, attempting to re-login.',);
             authResponse = await this.authenticate();
         }
         // Update data elements
