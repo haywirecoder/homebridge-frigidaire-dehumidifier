@@ -7,7 +7,8 @@ const PLUGIN_NAME = 'homebridge-frigidaire-dehumidifier';
 const PLATFORM_NAME = 'FrigidaireAppliance';
 
 const CLEAN_AIR_MODE = '1004';
-
+const AIR_CONDITIONER = "AC1";
+const DEHUMIDIFIER = "DH1";
 
 var Service, Characteristic, HomebridgeAPI, UUIDGen;
 
@@ -34,13 +35,13 @@ class FrigidaireAppliancePlatform {
     if ((this.config.auth.username == "") || (this.config.auth.password == "") || (!this.config.auth.password) || (!this.config.auth.username))
     {
       this.log.error('Plug-in configuration error: Frigidaire Application authentication information not provided.');
-      // terminate plug-in initization
+      // terminate plug-in initialization
       return;
     }
   }
   catch(err) {
     this.log.error('Plug-in configuration error: Frigidaire Application authentication information not provided.');
-    // terminate plug-in initization
+    // terminate plug-in initialization
     return;
   }
   
@@ -53,11 +54,11 @@ class FrigidaireAppliancePlatform {
   api.on('didFinishLaunching', () => {
 
     this.initialLoad =  this.frig.init().then (() => {
-       // Once devices are discovered update Homekit assessories
+       // Once devices are discovered update Homekit accessories
       this.refreshAccessories();
     }).catch(err => {
-      this.log.error('Frigidaire Application Initization Failure:', err);
-      // terminate plug-in initization
+      this.log.error('Frigidaire Application initialization Failure:', err);
+      // terminate plug-in initialization
       return;
     });
     
@@ -67,52 +68,62 @@ class FrigidaireAppliancePlatform {
   // Create associates in Homekit based on devices in Frigidaire Appliance account
   async refreshAccessories() {
   
+    // Track number of device added to homekit
+    var homekit_appliance_count = 0;
+
     // Process each flo devices and create accessories within the platform.
     if(this.frig.frig_devices.length <= 0) return;
+    // Process each appliance 
     for (var i = 0; i < this.frig.frig_devices.length; i++) {
 
       let currentDevice = this.frig.frig_devices[i];
-      this.log(`Configuring ${currentDevice.name} with a Device ID: ${currentDevice.deviceId}`);
-      var deviceAccessory = new dehumidifierAppliance(this.frig, i, currentDevice, this.config, this.log, Service, Characteristic, UUIDGen);
-       // check the accessory was not restored from cache
-      var foundAccessory = this.accessories.find(accessory => accessory.UUID === deviceAccessory.uuid)
-      if (!foundAccessory) {
-        // create a new accessory
-        let newAccessory = new this.api.platformAccessory(deviceAccessory.name, deviceAccessory.uuid);
-        // add services and Characteristic
-        deviceAccessory.setAccessory(newAccessory);
-        // register the accessory
-        this.addAccessory(deviceAccessory); 
-      }
-      else {// accessory already exist just set characteristic
-          deviceAccessory.setAccessory(foundAccessory);
-      }
-      // if clean air enable create airpurifier tile to control functionality.
-      if (this.config.enableAirFilter) {
+      // Confirm appliance is a dehumidifier
+      if (currentDevice.destination == DEHUMIDIFIER) {
+        this.log(`Configuring ${currentDevice.name} with a Device ID: ${currentDevice.deviceId}`);
+        let deviceAccessory = new dehumidifierAppliance(this.frig, i, currentDevice, this.config, this.log, Service, Characteristic, UUIDGen);
+        // check the accessory was not restored from cache
+        let foundAccessory = this.accessories.find(accessory => accessory.UUID === deviceAccessory.uuid)
+        if (!foundAccessory) {
+          // create a new accessory
+          let newAccessory = new this.api.platformAccessory(deviceAccessory.name, deviceAccessory.uuid);
+          // add services and Characteristic
+          deviceAccessory.setAccessory(newAccessory);
+          // register the accessory
+          this.addAccessory(deviceAccessory); 
+        }
+        else {// accessory already exist just set characteristic
+            deviceAccessory.setAccessory(foundAccessory);
+        }
+        // if clean air enabled create an air purifier tile to control functionality.
+        if (this.config.enableAirFilter) {
 
-          var deviceAccessoryAir = new airpurifierAppliance(this.frig, i, currentDevice, this.config, this.log, Service, Characteristic, UUIDGen, deviceAccessory);
-          // check the accessory was not restored from cache
-          var foundAccessory = this.accessories.find(accessory => accessory.UUID === deviceAccessoryAir.uuid)
-          if (!foundAccessory) {
-            // create a new accessory
-            let newAccessory = new this.api.platformAccessory(deviceAccessoryAir.name, deviceAccessoryAir.uuid);
-            // add services and Characteristic
-            deviceAccessoryAir.setAccessory(newAccessory);
-            // register the accessory
-            this.addAccessory(deviceAccessoryAir); 
-          }
-          else {// accessory already exist just set characteristic
-            deviceAccessoryAir.setAccessory(foundAccessory);
-          }
+            let deviceAccessoryAir = new airpurifierAppliance(this.frig, i, currentDevice, this.config, this.log, Service, Characteristic, UUIDGen, deviceAccessory);
+            // check the accessory was not restored from cache
+            let foundAccessory = this.accessories.find(accessory => accessory.UUID === deviceAccessoryAir.uuid)
+            if (!foundAccessory) {
+              // create a new accessory
+              let newAccessory = new this.api.platformAccessory(deviceAccessoryAir.name, deviceAccessoryAir.uuid);
+              // add services and Characteristic
+              deviceAccessoryAir.setAccessory(newAccessory);
+              // register the accessory
+              this.addAccessory(deviceAccessoryAir); 
+            }
+            else {// accessory already exist just set characteristic
+              deviceAccessoryAir.setAccessory(foundAccessory);
+            }
+        }
+        homekit_appliance_count += 1;
       }
     }
-    this.log.info(`Frigidaire Appliance configured: ${this.frig.frig_devices.length}`);
+    this.log.info(`Frigidaire Appliance configured: ${homekit_appliance_count}`);
 
     // Clean accessories with no association with Flo devices.
     this.orphanAccessory();
     //Start background process to poll devices, if any devices were present
-    this.log.info(`Frigidaire background polling process started. \nDevice will be polled each ${Math.floor((this.config.deviceRefresh / 60))} min(s) ${Math.floor((this.config.deviceRefresh % 60))} second(s).`);              
-    this.frig.startPollingProcess();     
+    if (homekit_appliance_count != 0) {
+      this.log.info(`Frigidaire background polling process started. \nDevice will be polled each ${Math.floor((this.config.deviceRefresh / 60))} min(s) ${Math.floor((this.config.deviceRefresh % 60))} second(s).`);              
+      this.frig.startPollingProcess();     
+    }
 };
 
 // Find accessory with no association with frigidaire appliances and remove
