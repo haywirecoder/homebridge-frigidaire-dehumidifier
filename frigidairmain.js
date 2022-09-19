@@ -74,7 +74,7 @@ const COUNTRY = 'US'
  const DEHUMIDIFIERMODES = new Set([DEHMODE_DRY,DEHMODE_AUTO,DEHMODE_CONTINUOUS,DEHMODE_QUIET]);
  const DEHUMIDIFIERFANMODES = new Set([FANMODE_MED,FANMODE_LOW,FANMODE_HIGH]);
 
- FRIGIDAIRE_SESSIONKEY_TIMEOUT = 32400000 // Session valid for 12 hours. Default to refresh key at the 9th hour (75%).
+ FRIGIDAIRE_SESSIONKEY_TIMEOUT = 9 // Session valid for 12 hours. Default to refresh key at the 9th hour (75%).
 
 class Frigidaire extends EventEmitter {
     auth_token = {};
@@ -114,8 +114,9 @@ class Frigidaire extends EventEmitter {
         this.deviceRefreshTime = config.deviceRefresh * 1000 || 90000; // default to 90 secs, so we don't hammer their servers
         this.attempts = 0;
         this.lastUpdate = null;  
-        this.isBusy = false;     
-        this.sessionKeyRefreshTime = config.sessionKeyRefresh * 3600000 || FRIGIDAIRE_SESSIONKEY_TIMEOUT; // Sessionkey timeout provide in hours
+        this.isBusy = false;      
+        this.sessionKeyRefreshTime = (config.sessionKeyRefresh ?? FRIGIDAIRE_SESSIONKEY_TIMEOUT) * 3600000;  
+
     };
 
     // Initialization routine
@@ -128,9 +129,13 @@ class Frigidaire extends EventEmitter {
             if (authResponse) {
                 this.log.info('Login Successful.'); 
                 await this.discoverDevices();
+
                 // Set time to refresh session key
-                this.log.info(`Frigidaire Session Key will be refresh in ${Math.floor((this.sessionKeyRefreshTime / (1000 * 60 * 60)) % 24)} hour(s) and ${Math.floor((this.sessionKeyRefreshTime / (1000 * 60 )) % 60)} min(s).`);
-                this.sessionKeyRefreshHandle = setTimeout(() => this.refreshSessionKey(), this.sessionKeyRefreshTime); 
+                if(this.sessionKeyRefreshTime > 0) {
+                    this.log.info(`Frigidaire Session Key will be refresh in ${Math.floor((this.sessionKeyRefreshTime / (1000 * 60 * 60)) % 24)} hour(s) and ${Math.floor((this.sessionKeyRefreshTime / (1000 * 60 )) % 60)} min(s).`);
+                    this.sessionKeyRefreshHandle = setTimeout(() => this.refreshSessionKey(), this.sessionKeyRefreshTime);
+                }
+                else this.log.info(`Automatic Frigidaire Session Key refresh has been disabled.`);
             }
             else return false;
 
@@ -163,7 +168,7 @@ class Frigidaire extends EventEmitter {
             "country": this.country,
         }
 
-        this.log.debug('Attemping to login...');
+        this.log.debug('Attempting to login...');
         var authUrl = APIURL + '/authentication/authenticate';
         this.isBusy = true;
         try {
@@ -370,8 +375,8 @@ class Frigidaire extends EventEmitter {
         if(this.frig_devices.length <= deviceIndex) return false;
         var returnCode = 0;
         
-        if (onValue) returnCode = await this.sendDeviceCommmand(deviceIndex,POWER_MODE,POWER_ON) 
-        else returnCode = await this.sendDeviceCommmand(deviceIndex,POWER_MODE,POWER_OFF) 
+        if (onValue) returnCode = await this.sendDeviceCommand(deviceIndex,POWER_MODE,POWER_ON) 
+        else returnCode = await this.sendDeviceCommand(deviceIndex,POWER_MODE,POWER_OFF) 
         if (returnCode == 200)
         {
             this.frig_devices[deviceIndex].mode = onValue;
@@ -390,7 +395,7 @@ class Frigidaire extends EventEmitter {
         if(!DEHUMIDIFIERMODES.has(DehumMode)) return false;
         var returnCode = 0; 
         
-        returnCode = await this.sendDeviceCommmand(deviceIndex,MODE,DehumMode);
+        returnCode = await this.sendDeviceCommand(deviceIndex,MODE,DehumMode);
         if (returnCode == 200)
         {
             this.frig_devices[deviceIndex].mode = DehumMode;
@@ -411,7 +416,7 @@ class Frigidaire extends EventEmitter {
         
         // check if applicance is in auto model? If auto fam mode is automatically and can't be adjusted.
         if (this.frig_devices[deviceIndex].mode == DEHMODE_AUTO) return false;
-        returnCode = await this.sendDeviceCommmand(deviceIndex,FAN_MODE, fanModeValue);
+        returnCode = await this.sendDeviceCommand(deviceIndex,FAN_MODE, fanModeValue);
         if (returnCode == 200)
          {
             this.frig_devices[deviceIndex].fanMode = fanModeValue;
@@ -433,7 +438,7 @@ class Frigidaire extends EventEmitter {
             // If mode is not in auto mode that change set humidity level. 
             // check if appliance is in auto model? If auto fam mode is automatically and can't be adjusted.
             if (this.frig_devices[deviceIndex].mode == DEHMODE_AUTO) return false;
-            returnCode = await this.sendDeviceCommmand(deviceIndex,TARGET_HUMIDITY, humidityLevel);
+            returnCode = await this.sendDeviceCommand(deviceIndex,TARGET_HUMIDITY, humidityLevel);
             if (returnCode == 200)
             {
                 this.frig_devices[deviceIndex].targetHumidity = humidityLevel;
@@ -452,8 +457,8 @@ class Frigidaire extends EventEmitter {
         var returnCode = 0;
 
         // Send command to API endpoint base on user selection
-        if (modeValue == CLEANAIR_ON) returnCode = await this.sendDeviceCommmand(deviceIndex,CLEAN_AIR_MODE,CLEANAIR_ON);
-        else returnCode = await this.sendDeviceCommmand(deviceIndex,CLEAN_AIR_MODE,CLEANAIR_OFF);
+        if (modeValue == CLEANAIR_ON) returnCode = await this.sendDeviceCommand(deviceIndex,CLEAN_AIR_MODE,CLEANAIR_ON);
+        else returnCode = await this.sendDeviceCommand(deviceIndex,CLEAN_AIR_MODE,CLEANAIR_OFF);
         if (returnCode == 200)
         {
             this.frig_devices[deviceIndex].clearAirMode = modeValue;
@@ -470,8 +475,8 @@ class Frigidaire extends EventEmitter {
         if(this.frig_devices[deviceIndex].destination != DEHUMIDIFIER) return false;
         var returnCode = 0;
         // Send command to API endpoint base on user selection 
-        if (modeValue == CHILDMODE_ON) returnCode = await this.sendDeviceCommmand(deviceIndex,CHILD_MODE,CHILDMODE_ON); 
-        else returnCode = await this.sendDeviceCommmand(deviceIndex,CHILD_MODE,CHILDMODE_OFF); 
+        if (modeValue == CHILDMODE_ON) returnCode = await this.sendDeviceCommand(deviceIndex,CHILD_MODE,CHILDMODE_ON); 
+        else returnCode = await this.sendDeviceCommand(deviceIndex,CHILD_MODE,CHILDMODE_OFF); 
         if (returnCode == 200)
         {
             this.frig_devices[deviceIndex].childMode = modeValue;
@@ -482,7 +487,7 @@ class Frigidaire extends EventEmitter {
     }
 
     // Executes any defined action on a given appliance. Will authenticate if the request fails
-    async sendDeviceCommmand(deviceIndex,attribute, value) {
+    async sendDeviceCommand(deviceIndex,attribute, value) {
        
 
         const POSTENDPOINT = APIURL + "/commander/remote/sendjson";
@@ -553,8 +558,8 @@ class Frigidaire extends EventEmitter {
      
     };
 
-    // The session key must be periodically refresh. This method call the autenticate process to re-login and 
-    // new session key and store for later transaction.
+    // The session key must be periodically refresh. This method call the authentication process to re-login and 
+    // get a new session key and store for later transaction.
     async refreshSessionKey() {
 
         // Clear prior session handles
