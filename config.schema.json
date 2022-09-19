@@ -75,8 +75,8 @@
           "title": "Session Key Refresh Interval",
           "type": "integer",
           "default": 9,
-          "description": "Session key only valid for only 12 hours. Time interval to proactivity refresh session key to prevent a fault.",
-          "minimum": 1,
+          "description": "Session key only valid for only 12 hours. Time interval to proactivity refresh session key to prevent a fault. A value of 0 will disable refresh.",
+          "minimum": 0,
           "maximum": 11
         },
         "excludedDevices": {
@@ -106,7 +106,7 @@
         "items": [
           {
             "key": "sessionKeyRefresh",
-            "description": "Session key only valid for only 12 hours. Time interval to proactivity refresh session key to prevent a fault."
+            "description": "Session key only valid for only 12 hours. Time interval to proactivity refresh session key to prevent a fault. A value of 0 will disable refresh."
           },
           {
             "key": "excludedDevices",
