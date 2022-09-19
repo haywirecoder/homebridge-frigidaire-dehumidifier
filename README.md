@@ -30,7 +30,7 @@ An Homebridge plug-in to integrate the Frigidaire's connected dehumidifier with 
 
 
 
-Example configuration is below, with Frigidaire dehumidifier mode set to <i>Quiet</i> mode for dehumidifying and Air purifier/Fresher/Ionizer set tile set to display in Homekit. 
+Example configuration is below, with Frigidaire dehumidifier mode set to <i>Quiet</i> mode for dehumidifying and Air purifier/Fresher/Ionizer set to display in Homekit. 
 
 ```javascript
 ...
