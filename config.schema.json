@@ -111,7 +111,7 @@
           {
             "key": "excludedDevices",
             "title": "Excluded Devices",
-            "description": "A list of devices to exclude from HomeKit. Obtain deviceID from Homebridge startup log.",
+            "description": "A list of device ID to exclude from HomeKit. Obtain the device ID from Homebridge startup log.",
             "add": "Add Another Device",
             "type": "array",
             "items": [
