@@ -35,15 +35,16 @@ class FrigidaireAppliancePlatform {
     if ((this.config.auth.username == "") || (this.config.auth.password == "") || (!this.config.auth.password) || (!this.config.auth.username))
     {
       this.log.error('Plug-in configuration error: Frigidaire Application authentication information not provided.');
-      // terminate plug-in initization
+      // terminate plug-in initialization
       return;
     }
   }
   catch(err) {
     this.log.error('Plug-in configuration error: Frigidaire Application authentication information not provided.');
-    // terminate plug-in initization
+    // terminate plug-in initialization
     return;
   }
+  this.enableAirPurifier =  this.config.enableAirPurifier ? this.config.enableAirPurifier : true;  
   
   this.frig = new frigengine (log, this.config);
  
@@ -54,11 +55,11 @@ class FrigidaireAppliancePlatform {
   api.on('didFinishLaunching', () => {
 
     this.initialLoad =  this.frig.init().then (() => {
-       // Once devices are discovered update Homekit assessories
+       // Once devices are discovered update Homekit accessories
       this.refreshAccessories();
     }).catch(err => {
-      this.log.error('Frigidaire Application Initization Failure:', err);
-      // terminate plug-in initization
+      this.log.error('Frigidaire Application initialization Failure:', err);
+      // terminate plug-in initialization
       return;
     });
     
@@ -77,7 +78,7 @@ class FrigidaireAppliancePlatform {
     for (var i = 0; i < this.frig.frig_devices.length; i++) {
 
       let currentDevice = this.frig.frig_devices[i];
-      // Confirm appliance is a dehumidifer
+      // Confirm appliance is a dehumidifier
       if (currentDevice.destination == DEHUMIDIFIER) {
         this.log(`Configuring ${currentDevice.name} with a Device ID: ${currentDevice.deviceId}`);
         let deviceAccessory = new dehumidifierAppliance(this.frig, i, currentDevice, this.config, this.log, Service, Characteristic, UUIDGen);
@@ -95,7 +96,7 @@ class FrigidaireAppliancePlatform {
             deviceAccessory.setAccessory(foundAccessory);
         }
         // if clean air enabled create an air purifier tile to control functionality.
-        if (this.config.enableAirFilter) {
+        if (this.enableAirPurifier) {
 
             let deviceAccessoryAir = new airpurifierAppliance(this.frig, i, currentDevice, this.config, this.log, Service, Characteristic, UUIDGen, deviceAccessory);
             // check the accessory was not restored from cache
@@ -137,7 +138,7 @@ async orphanAccessory() {
     // determine if accessory is currently a device in frigidaire account, thus should remain
     foundAccessory = this.frig.frig_devices.find(device => UUIDGen.generate(device.deviceId.toString()) === accessory.UUID)
     if (!foundAccessory) {
-      if (this.config.enableAirFilter) {
+      if (this.enableAirPurifier) {
         // check for additional accessories that is link to this device.
           foundAccessory = this.frig.frig_devices.find(device => UUIDGen.generate(device.deviceId.toString()+ "-" + CLEAN_AIR_MODE) === accessory.UUID)
           if (!foundAccessory) 
