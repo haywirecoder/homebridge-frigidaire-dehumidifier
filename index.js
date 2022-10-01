@@ -43,9 +43,13 @@ class FrigidaireAppliancePlatform {
     this.log.error('Plug-in configuration error: Frigidaire Application authentication information not provided.');
     // terminate plug-in initialization
     return;
-  }
-  this.enableAirPurifier =  this.config.enableAirPurifier ? this.config.enableAirPurifier : true;  
   
+  }
+
+  // Determine if purifiers should be enabled
+  this.enableAirPurifier  = this.config.enableAirPurifier ?? true;
+
+  // Create new frigidaire device retrival object
   this.frig = new frigengine (log, this.config);
  
   // When this event is fired it means Homebridge has restored all cached accessories from disk.
@@ -154,7 +158,7 @@ async orphanAccessory() {
 //Add accessory to homekit dashboard
 addAccessory(device) {
 
-  this.log.info('Adding accessory');
+  this.log.debug('Adding accessory');
       try {
         this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [device.accessory]);
         this.accessories.push(device.accessory);
@@ -165,7 +169,7 @@ addAccessory(device) {
 
 //Remove accessory to homekit dashboard
 removeAccessory(accessory, updateIndex) {
-  this.log.info('Removing accessory:',accessory.displayName );
+  this.log.info('Removing accessory from cache:',accessory.displayName );
     if (accessory) {
         this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
     }
