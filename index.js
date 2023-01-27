@@ -1,5 +1,5 @@
 "use strict";
-const frigengine = require('./frigidairmain');
+const frigengine = require('./frigmain');
 const dehumidifierAppliance = require('./accessories/dehumfier');
 const airpurifierAppliance = require('./accessories/airpurifier');
 
