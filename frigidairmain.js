@@ -2,6 +2,7 @@
 const EventEmitter = require('events');
 const superagent = require('superagent');
 const uuid4 = require('uuid4');
+const constants = require('./constants.json');
 
 
 // URL constant for retrieving data
@@ -99,7 +100,7 @@ class Frigidaire extends EventEmitter {
         this.excludedDevices = config.excludedDevices || [];
         this.auth_token.username = config.auth.username;
         this.auth_token.password = config.auth.password;
-        this.cid = this.decodeCID(config.cid.encoded);
+        this.cid = this.decodeCID(constants.cid.encoded);
         this.deviceId = uuid4();
         this.country =COUNTRY;
         this.brand =BRAND;
@@ -152,7 +153,6 @@ class Frigidaire extends EventEmitter {
             'Content-Type': 'application/json',
             'Authorization': 'Basic dXNlcjpwYXNz'
         }
-        console.log(headers);
 
         var authBody = {
             "username": this.auth_token.username,
