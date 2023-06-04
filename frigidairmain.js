@@ -1,5 +1,6 @@
 
 const EventEmitter = require('events');
+const CryptoJS = require('crypto-js');
 const superagent = require('superagent');
 const uuid4 = require('uuid4');
 const constants = require('./constants.json');
@@ -7,7 +8,7 @@ const constants = require('./constants.json');
 
 // URL constant for retrieving data
 
-const APIURL = 'https://api.latam.ecp.electrolux.com'
+const APIURLV3 = 'https://api.us.ecp.electrolux.com'
 const BRAND = 'Frigidaire'
 const COUNTRY = 'US'
 
@@ -71,8 +72,11 @@ const COUNTRY = 'US'
 
  const DEHUMIDIFIERMODES = new Set([DEHMODE_DRY,DEHMODE_AUTO,DEHMODE_CONTINUOUS,DEHMODE_QUIET]);
  const DEHUMIDIFIERFANMODES = new Set([FANMODE_MED,FANMODE_LOW,FANMODE_HIGH]);
-
- FRIGIDAIRE_SESSIONKEY_TIMEOUT = 9 // Session valid for 12 hours. Default to refresh key at the 9th hour (75%).
+ const FRIGIDAIRE_SESSIONKEY_TIMEOUT = 9 // Session valid for 12 hours. Default to refresh key at the 9th hour (75%).
+ 
+ const decrypt = (data) => {
+    return CryptoJS.enc.Base64.parse(data).toString(CryptoJS.enc.Utf8);
+}
 
 class Frigidaire extends EventEmitter {
     auth_token = {};
@@ -100,9 +104,9 @@ class Frigidaire extends EventEmitter {
         this.excludedDevices = config.excludedDevices || [];
         this.auth_token.username = config.auth.username;
         this.auth_token.password = config.auth.password;
-        this.cid = this.decodeCID(constants.cid.encoded);
+        this.cid = decrypt(constants.cid.data);
         this.deviceId = uuid4();
-        this.country =COUNTRY;
+        this.country =config.country || COUNTRY;
         this.brand =BRAND;
         this.sessionKey = null;
         this.deviceRefreshTime = config.deviceRefresh * 1000 || 90000; // default to 90 secs, so we don't hammer their servers
@@ -149,11 +153,11 @@ class Frigidaire extends EventEmitter {
 
         var headers = {
             'x-ibm-client-id': this.cid,
-            'User-Agent': 'Frigidaire/81 CFNetwork/1121.2.2 Darwin/19.2.0',
+            'User-Agent': 'Frigidaire/81 CFNetwork/1206 Darwin/20.1.0',
+            'x-api-key': this.cid,
             'Content-Type': 'application/json',
-            'Authorization': 'Basic dXNlcjpwYXNz'
+            'Authorization': 'Basic ' + this.cid,
         }
-
         var authBody = {
             "username": this.auth_token.username,
             "password": this.auth_token.password,
@@ -163,7 +167,7 @@ class Frigidaire extends EventEmitter {
         }
 
         this.log.debug('Attempting to login...');
-        var authUrl = APIURL + '/authentication/authenticate';
+        var authUrl = APIURLV3 + '/authentication/authenticate';
         this.isBusy = true;
         try {
             const response = await superagent
@@ -337,12 +341,13 @@ class Frigidaire extends EventEmitter {
     //  Makes a get request to the Frigidaire API and parses the result
     async getRequest(endpoint) {
         
-        var url = APIURL + endpoint;
+        var url = APIURLV3 + endpoint;
         var headers = {
             'x-ibm-client-id': this.cid,
-            'User-Agent': 'Frigidaire/81 CFNetwork/1121.2.2 Darwin/19.2.0',
+            'User-Agent': 'Frigidaire/81 CFNetwork/1206 Darwin/20.1.0',
+            'x-api-key': this.cid,
             'Content-Type': 'application/json',
-            'Authorization': 'Basic dXNlcjpwYXNz'
+            'Authorization': 'Basic ' + this.cid,
         }
    
         headers['session_token'] = this.sessionKey;
@@ -352,7 +357,7 @@ class Frigidaire extends EventEmitter {
                                 .set(headers)
                                 .disableTLSCerts();
             if (response.body.status == 'ERROR' && response.body.code != 'ECP0000') {
-                this.log.error("Frigidaire Get Error: " + response.body.code + " " + response.body.message);
+                this.log.error("Frigidaire Get Error: " + response.body.code + " " + response.body.message + " EndPoint: " + endpoint);
              } 
             else { 
                 this.log.debug('Get Request complete',response.body.message );
@@ -360,7 +365,7 @@ class Frigidaire extends EventEmitter {
             }
           } 
           catch (err) {
-            this.log.error('Frigidaire Get Error: ', err.response.body.code +' ' + err.response.body.message);
+            this.log.error('Frigidaire Get Error: ', err.response.body.code +' ' + err.response.body.message + " EndPoint: " + endpoint);
          }
     }
 
@@ -484,16 +489,17 @@ class Frigidaire extends EventEmitter {
     async sendDeviceCommand(deviceIndex,attribute, value) {
        
 
-        const POSTENDPOINT = APIURL + "/commander/remote/sendjson";
+        const POSTENDPOINT = APIURLV3 + "/commander/remote/sendjson";
 
         var urlDeviceString = "?pnc=" + this.frig_devices[deviceIndex].pnc + "&elc=" + this.frig_devices[deviceIndex].elc + "&sn=" + this.frig_devices[deviceIndex].serialNumber + "&mac=" + this.frig_devices[deviceIndex].mac;
         var uri = POSTENDPOINT + urlDeviceString
        
         var headers = {
             'x-ibm-client-id': this.cid,
-            'User-Agent': 'Frigidaire/81 CFNetwork/1121.2.2 Darwin/19.2.0',
+            'User-Agent': 'Frigidaire/81 CFNetwork/1206 Darwin/20.1.0',
+            'x-api-key': this.cid,
             'Content-Type': 'application/json',
-            'Authorization': 'Basic dXNlcjpwYXNz'
+            'Authorization': 'Basic ' + this.cid,
         }
         headers['session_token'] = this.sessionKey;
 
@@ -597,40 +603,6 @@ class Frigidaire extends EventEmitter {
         // Set timer to refresh devices
         this.deviceRefreshHandle = setTimeout(() => this.backgroundRefresh(), this.deviceRefreshTime); 
     }
-
-    // Remove concerns in regards to public displaying client ID within the code.
-    encodeCID(id) {
-        let encodedId = "";
-        // Loop through each character in the message
-        for (let i = 0; i < id.length; i++) {
-          // Convert the character to its Unicode code point
-          const codePoint = id.charCodeAt(i);
-          // Add the code point to the encoded message with a separator character
-          encodedId += codePoint + ",";
-        }
-        return encodedId;
-    }
-
-    decodeCID(id) {
-
-        if (typeof id !== 'string') {
-            return "Error: encoded message is not a string";
-        }
-        
-        let decodedId = "";
-        // Remove any trailing commas from the encoded message
-        id = id.replace(/,+$/, "");
-        // Split the encoded message into an array of code points
-        const codePoints = id.split(",");
-        // Loop through each code point and convert it to a character
-        for (let i = 0; i < codePoints.length; i++) {
-          const codePoint = parseInt(codePoints[i], 10);
-          const char = String.fromCharCode(codePoint);
-          decodedId += char;
-        }
-        return decodedId;
-    }
-
 }
 
 module.exports = Frigidaire;
