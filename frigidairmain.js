@@ -69,6 +69,7 @@ const COUNTRY = 'US'
 
  const CHILDMODE_OFF = 0
  const CHILDMODE_ON = 1
+ const TARGETHUM = 40;
 
  const DEHUMIDIFIERMODES = new Set([DEHMODE_DRY,DEHMODE_AUTO,DEHMODE_CONTINUOUS,DEHMODE_QUIET]);
  const DEHUMIDIFIERFANMODES = new Set([FANMODE_MED,FANMODE_LOW,FANMODE_HIGH]);
@@ -231,6 +232,7 @@ class Frigidaire extends EventEmitter {
                 device.cpv = deviceJSON[i]['cpv'];
                 device.destination = "";
                 device.monitoredValues = "";
+                device.targetHumidity = TARGETHUM;
                 device.lastUpdate = Date.now();
                 this.frig_devices.push(device);
                 await this.getDetailForDevice(i);
@@ -381,7 +383,8 @@ class Frigidaire extends EventEmitter {
             this.frig_devices[deviceIndex].mode = onValue;
             return onValue;
         }
-    
+        else
+            this.log.error('Setting Power Mode unsuccessful returned code: ', returnCode);
         return -1;
     }
 
@@ -400,7 +403,8 @@ class Frigidaire extends EventEmitter {
             this.frig_devices[deviceIndex].mode = DehumMode;
             return DehumMode;
         }
-        
+        else
+            this.log.error('Setting Dehumdifier mode unsuccessful returned code: ', returnCode);
         return -1;
     }
 
@@ -421,6 +425,8 @@ class Frigidaire extends EventEmitter {
             this.frig_devices[deviceIndex].fanMode = fanModeValue;
             return fanModeValue;
         }
+        else
+            this.log.error('Setting Fan Mode unsuccessful returned code: ', returnCode);
         return -1;
     }
     
@@ -429,22 +435,25 @@ class Frigidaire extends EventEmitter {
         if(this.frig_devices.length <= deviceIndex) return false;
         // Is a dehumidifier appliance?
         if(this.frig_devices[deviceIndex].destination != DEHUMIDIFIER) return false;
+        // check if appliance is in auto model? If auto fam mode is automatically and can't be adjusted.
+        if (this.frig_devices[deviceIndex].mode == DEHMODE_AUTO) return false;
+
         var returnCode = 0;
         // determine if the humidity level is within acceptable range.
-        if (humidityLevel >= 35 && humidityLevel <= 85) {
-            // round to nearest multiple of 5.
-            humidityLevel = Math.ceil(humidityLevel/5)*5;
-            // If mode is not in auto mode that change set humidity level. 
-            // check if appliance is in auto model? If auto fam mode is automatically and can't be adjusted.
-            if (this.frig_devices[deviceIndex].mode == DEHMODE_AUTO) return false;
-            returnCode = await this.sendDeviceCommand(deviceIndex,TARGET_HUMIDITY, humidityLevel);
-            if (returnCode == 200)
-            {
-                this.frig_devices[deviceIndex].targetHumidity = humidityLevel;
-                return humidityLevel;
-            }
+        if (humidityLevel < 35) humidityLevel = 35;
+        if (humidityLevel > 85) humidityLevel = 85;
+
+        // round to nearest multiple of 5.
+        humidityLevel = Math.ceil(humidityLevel/5)*5;
+            
+        returnCode = await this.sendDeviceCommand(deviceIndex,TARGET_HUMIDITY, humidityLevel);
+        if (returnCode == 200)
+        {
+            this.frig_devices[deviceIndex].targetHumidity = humidityLevel;
+            return humidityLevel;
         }
-        this.log.error('Dehumidifier Humidity Level not within acceptable range. Value must be between 35 and 85.', err);
+        else
+            this.log.error('Setting Relative Humidity unsuccessful returned code: ', returnCode);
         return -1;
     }
 
@@ -463,7 +472,8 @@ class Frigidaire extends EventEmitter {
             this.frig_devices[deviceIndex].clearAirMode = modeValue;
             return modeValue;
         }
-        
+        else
+            this.log.error('Setting Air Purifier unsuccessful returned code: ', returnCode);
         return -1;
     }
 
@@ -481,7 +491,8 @@ class Frigidaire extends EventEmitter {
             this.frig_devices[deviceIndex].childMode = modeValue;
             return modeValue;
         } 
-       
+        else
+            this.log.error('Setting child unsuccessful returned code: ', returnCode);
         return -1;
     }
 
