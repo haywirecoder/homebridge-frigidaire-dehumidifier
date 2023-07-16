@@ -18,7 +18,7 @@ class airPurifierAppliance {
     this.mode = device.mode ||POWER_OFF;
     this.log = log;
     this.parentAppliance = parentAccessory;
-    this.serialNumber = device.serialNumber; 
+    this.serialNumber = device.serialNumber+ "-" +CLEAN_AIR_MODE;
     this.firmware = device.firmwareVersion || HomeBridgeDehumidifierApplianceVersion;
   
     this.deviceId = device.deviceId.toString() + "-" +CLEAN_AIR_MODE;

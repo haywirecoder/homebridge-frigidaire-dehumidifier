@@ -14,6 +14,7 @@ const FANMODE_HIGH = 4;
 const FANMODE_AUTO = 7;
 const POWER_ON = 1
 const POWER_OFF = 0
+const TARGETHUM = 40;
 
 const { HomeBridgeDehumidifierApplianceVersion } = require('../package.json');
 
@@ -31,7 +32,7 @@ class dehumidifierAppliance {
     this.mode = device.mode || POWER_OFF;
     this.childMode = device.childMode || CHILDMODE_OFF;
     this.fanMode = device.fanMode || FANMODE_OFF;
-    this.targetHumidity = device.targetHumidity || 50;
+    this.targetHumidity = device.targetHumidity || TARGETHUM;
     this.filterStatus = device.filterStatus || FILTER_GOOD;
     this.waterBucketStatus = device.bucketStatus || 0;
     
@@ -68,7 +69,7 @@ class dehumidifierAppliance {
     this.childMode = eventData.device.childMode || CHILDMODE_OFF;
     this.fanMode = eventData.device.fanMode || FANMODE_OFF;
     this.waterBucketStatus = eventData.device.bucketStatus || 0;
-    this.targetHumidity = eventData.device.targetHumidity || 50;
+    this.targetHumidity = eventData.device.targetHumidity || TARGETHUM;
     this.filterStatus = eventData.device.filterStatus;
 
     if (this.mode != POWER_OFF){
@@ -138,7 +139,7 @@ class dehumidifierAppliance {
         .setProps({
             minValue: 35,
             maxValue: 85,
-            minStep: 5, 
+            minStep: 1, 
         })
         .on('get', async callback => this.getRelativeHumidityDehumidifier(callback))
         .on('set', async (state, callback)  => this.setRelativeHumidityDehumidifier(state, callback));
@@ -160,8 +161,7 @@ class dehumidifierAppliance {
     // Is the device currently on? If not turn on device
     if(this.mode == POWER_OFF) {
         responseDehum = await this.frig.setDevicePowerMode(deviceIndex,true);
-        if (responseDehum < 0) this.log.error('Setting Dehumidifier Mode could not be completed.');
-        else {
+        if (responseDehum >= 0) {
            this.mode = responseDehum; 
            dehumidifierService.updateCharacteristic(this.Characteristic.Active,this.Characteristic.Active.ACTIVE);
         }
@@ -186,8 +186,7 @@ class dehumidifierAppliance {
       
       if (value == this.Characteristic.Active.INACTIVE) responseDehum = await this.frig.setDevicePowerMode(this.index,false);
       else responseDehum = await this.frig.setDevicePowerMode(this.index,true);
-      if (responseDehum < 0) this.log.error('Setting Dehumidifier Power Mode could not be completed.');
-      else this.mode = responseDehum;
+      if (responseDehum >= 0) this.mode = responseDehum;
     
       return callback(null);
     }
@@ -216,8 +215,7 @@ class dehumidifierAppliance {
       responseDehum = await this.frig.setDehumidifierMode(this.index,DEHMODE_AUTO);
     else if (value == this.Characteristic.TargetHumidifierDehumidifierState.DEHUMIDIFIER) 
       responseDehum = await this.frig.setDehumidifierMode(this.index,this.dehumidifiermode);
-    if (responseDehum < 0) this.log.error('Setting Dehumidifier Mode could not be completed.');
-    else this.mode = responseDehum;
+    if (responseDehum >= 0) this.mode = responseDehum;
       
     return callback(null);
   }
@@ -234,8 +232,7 @@ class dehumidifierAppliance {
     // Is the device currently on? If not turn on device
     if(this.mode == DEHMODE_DRY) {
       responseDehum = await this.frig.setDehumidifierRelativeHumidity(this.index,this.HOMEKIT_TO_FANMODE[value]);
-      if (responseDehum < 0) this.log.error('Setting Dehumidifier Rotation Speed could not be completes.');
-      else this.fanMode = responseDehum;
+      if (responseDehum >= 0) this.fanMode = responseDehum;
     } 
     
     return callback(null);
@@ -255,19 +252,19 @@ class dehumidifierAppliance {
     if(this.mode != POWER_OFF) {
       if(value == this.Characteristic.LockPhysicalControls.CONTROL_LOCK_ENABLED) responseDehum = await this.frig.setDehumidifierChildLock(this.index,CHILDMODE_ON);
       else responseDehum = await this.frig.setDehumidifierChildLock(this.index,CHILDMODE_OFF);
-      
-      if (responseDehum < 0) this.log.error('Dehumidifier Child Lock encounter could not be completed.');
-      else this.childMode = responseDehum;
+
+      if (responseDehum >= 0) this.childMode = responseDehum;
         
     } 
-   
     return callback(null);
   }
 
 // Handle requests to get the current value of the "WaterLevel" characteristic
 async getWaterLevel(callback) {
-  this.log('TODO: Get Water Tank Function');
-  const currentValue = 0;
+  var currentValue;
+  // if bucket is full set to max value otherwise assume empty.
+  if (this.waterBucketStatus == 0) currentValue = 0;
+  else currentValue = 100;
   // set this to a valid value for water level
   return callback(null, currentValue);
 }
@@ -286,12 +283,10 @@ async getWaterLevel(callback) {
   // Handle requests to set the "RelativeHumidityDehumidifier" characteristic  
   async setRelativeHumidityDehumidifier(value, callback) {
     var responseDehum = -1;
-
     // Is the device currently on? If not turn on device
     if(this.mode == DEHMODE_DRY) {
       responseDehum = await this.frig.setDehumidifierRelativeHumidity(this.index,value);
-      if (responseDehum < 0) this.log.error('Setting Dehumidifier Relative Humidity could not be complete.');
-      else this.targetHumidity = responseDehum;
+      if (responseDehum >= 35) this.targetHumidity = responseDehum;
     } 
     return callback(null);
   }
