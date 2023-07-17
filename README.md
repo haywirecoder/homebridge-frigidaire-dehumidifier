@@ -28,6 +28,28 @@ An Homebridge plug-in to integrate the Frigidaire's connected dehumidifier with 
 | sessionKeyRefresh        | Refresh interval to obtain new a Frigidaire appliance key. The value is provided in hours and default to <i>9</i> hours, this is an optional value. <b>Please note:</b> Session key are valid for 12 hours, the plug-in does check if a valid session key is present before each operation and automatically tries to re-login, but this does generate an error in the log for an invalid session key. This value is for proactive session key refresh to prevent error from appearing in logs due to expiring key. Setting this value to <i>0</i> will disable session key refresh.                                     
 | excludedDevices         | Devices IDs to suppress from HomeKit. The device IDs can be obtain from Homebridge logs at startup of this plug-in. This is an optional value. | |
 
+
+## 💧 Note: Dehumidifier Relative Humidity
+
+There is a difference between Frigidaire App and Homebridge/HomeKit for relative humidity. 
+
+HomeKit Relative Humidity work between 0%-100% (By design). Here is translation between Frigidaire and Homekit.
+
+| Frigidaire | HomeKit |
+| --- | --- |
+| 35% | 0% |
+| 40% | 10% |
+| 45% | 20% |
+| 50% | 30% |
+| 55% | 40% |
+| 60% | 50% |
+| 65% | 60% |
+| 70% | 70% |
+| 75% | 80% |
+| 80% | 90% |
+| 85% | 100% |
+
+
 Example configuration is below, with Frigidaire dehumidifier mode set to <i>Quiet</i> mode for dehumidifying and Air purifier/Ionizer set to display in Homekit. 
 
 ```javascript
@@ -46,3 +68,5 @@ Example configuration is below, with Frigidaire dehumidifier mode set to <i>Quie
       "platform": "FrigidaireAppliance"
 }
 ...]
+
+
