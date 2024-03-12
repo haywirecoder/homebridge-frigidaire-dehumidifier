@@ -1,20 +1,32 @@
 "use strict";
-const FILTER_GOOD = 0;
-const FILTER_CHANGE = 2;
-const DEHMODE_DRY = 5;
-const DEHMODE_AUTO = 6;
-const DEHMODE_CONTINUOUS = 8;
-const DEHMODE_QUIET = 9;
-const CHILDMODE_OFF = 0
-const CHILDMODE_ON = 1
-const FANMODE_OFF = 0;
-const FANMODE_LOW = 1;
-const FANMODE_MED = 2;
-const FANMODE_HIGH = 4;
-const FANMODE_AUTO = 7;
-const POWER_ON = 1
-const POWER_OFF = 0
 const TARGETHUM = 40;
+ // Filter status
+ const BUY = "BUY"
+ const CHANGE = "CHANGE"
+ const CLEAN = "CLEAN"
+ const GOOD = "GOOD"
+ 
+// Dehumidifier Modes
+const DRY = 'DRY'
+const AUTO = 'AUTO'
+const CONTINUOUS = 'CONTINUOUS'
+const QUIET = 'QUIET'
+
+// fan speed
+const LOW = 'LOW'
+const MEDIUM = 'MIDDLE'
+const HIGH = 'HIGH'
+
+const POWER_ON = 'ON'
+const POWER_OFF = 'OFF'
+const APP_OFF = "OFF"
+const APP_RUNNING = "RUNNING"
+
+const CLEANAIR_ON = 'ON'
+const CLEANAIR_OFF = 'OFF'
+
+const UI_ON = 'ON'
+const UI_OFF = 'OFF'
 
 const { HomeBridgeDehumidifierApplianceVersion } = require('../package.json');
 
@@ -25,15 +37,15 @@ class dehumidifierAppliance {
     this.name = device.name.trim();
     this.index = deviceIndex;
     // default mode when homeKit put appliance in DEHUMIDIFYING mode
-    this.dehumidifiermode = config.dehumidifierMode || DEHMODE_DRY; 
+    this.dehumidifiermode = config.dehumidifierMode || DRY; 
     this.serialNumber = device.serialNumber
     this.firmware = device.firmwareVersion || HomeBridgeDehumidifierApplianceVersion;
     this.humidity = device.roomHumidity || 0;
     this.mode = device.mode || POWER_OFF;
-    this.childMode = device.childMode || CHILDMODE_OFF;
-    this.fanMode = device.fanMode || FANMODE_OFF;
+    this.uiMode = device.uiMode || UI_OFF;
+    this.fanMode = device.fanMode || LOW;
     this.targetHumidity = device.targetHumidity || TARGETHUM;
-    this.filterStatus = device.filterStatus || FILTER_GOOD;
+    this.filterStatus = device.filterStatus || GOOD;
     this.waterBucketStatus = device.bucketStatus || 0;
     
     this.deviceId = device.deviceId.toString();
@@ -44,18 +56,18 @@ class dehumidifierAppliance {
     this.VALID_CURRENT_STATE_VALUES = [Characteristic.CurrentHumidifierDehumidifierState.INACTIVE, Characteristic.CurrentHumidifierDehumidifierState.DEHUMIDIFYING];
     this.VALID_TARGET_STATE_VALUES = [Characteristic.TargetHumidifierDehumidifierState.AUTO, Characteristic.TargetHumidifierDehumidifierState.DEHUMIDIFIER];
     this.HOMEKIT_TO_FANMODE = {
-      0: FANMODE_LOW,
-      1: FANMODE_LOW,
-      2: FANMODE_MED,
-      3: FANMODE_HIGH,
-      4: FANMODE_HIGH
+      0: LOW,
+      1: LOW,
+      2: MEDIUM,
+      3: HIGH,
+      4: LOW
     };
     this.FAN_MODE_TO_HOMEKIT = {
-      [FANMODE_OFF]: 0,
-      [FANMODE_LOW]: 1,
-      [FANMODE_MED]: 2,
-      [FANMODE_HIGH]: 3,
-      [FANMODE_AUTO]: 4
+      [LOW]: 0,
+      [LOW]: 1,
+      [MEDIUM]: 2,
+      [HIGH]: 3,
+      [LOW]: 4
     };
   
   }
@@ -66,8 +78,8 @@ class dehumidifierAppliance {
     var dehumidifierService = this.accessory.getService(this.Service.HumidifierDehumidifier);
     this.humidity = eventData.device.roomHumidity || 0;
     this.mode = eventData.device.mode || POWER_OFF;
-    this.childMode = eventData.device.childMode || CHILDMODE_OFF;
-    this.fanMode = eventData.device.fanMode || FANMODE_OFF;
+    this.uiMode = eventData.device.uiMode || UI_OFF;
+    this.fanMode = eventData.device.fanMode || LOW;
     this.waterBucketStatus = eventData.device.bucketStatus || 0;
     this.targetHumidity = eventData.device.targetHumidity || TARGETHUM;
     this.filterStatus = eventData.device.filterStatus;
@@ -75,7 +87,7 @@ class dehumidifierAppliance {
     if (this.mode != POWER_OFF){
 
       dehumidifierService.updateCharacteristic(this.Characteristic.CurrentHumidifierDehumidifierState,this.Characteristic.CurrentHumidifierDehumidifierState.DEHUMIDIFYING);
-      if (this.mode == DEHMODE_AUTO) dehumidifierService.updateCharacteristic(this.Characteristic.TargetHumidifierDehumidifierState,this.Characteristic.TargetHumidifierDehumidifierState.AUTO);
+      if (this.mode == AUTO) dehumidifierService.updateCharacteristic(this.Characteristic.TargetHumidifierDehumidifierState,this.Characteristic.TargetHumidifierDehumidifierState.AUTO);
       else dehumidifierService.updateCharacteristic(this.Characteristic.TargetHumidifierDehumidifierState,this.Characteristic.TargetHumidifierDehumidifierState.DEHUMIDIFIER);
     
     }
@@ -202,7 +214,7 @@ class dehumidifierAppliance {
   // Handle the dehumdififer mode
   async getTargetHumidifierDehumidifierState(callback) {
     var currentValue = this.Characteristic.TargetHumidifierDehumidifierState.DEHUMIDIFIER;
-    if (this.mode == DEHMODE_AUTO) currentValue = this.Characteristic.TargetHumidifierDehumidifierState.AUTO;
+    if (this.mode == AUTO) currentValue = this.Characteristic.TargetHumidifierDehumidifierState.AUTO;
     return callback(null, currentValue);
   }
 
@@ -212,7 +224,7 @@ class dehumidifierAppliance {
     var responseDehum = -1;
   
     if (value == this.Characteristic.TargetHumidifierDehumidifierState.AUTO)
-      responseDehum = await this.frig.setDehumidifierMode(this.index,DEHMODE_AUTO);
+      responseDehum = await this.frig.setDehumidifierMode(this.index,AUTO);
     else if (value == this.Characteristic.TargetHumidifierDehumidifierState.DEHUMIDIFIER) 
       responseDehum = await this.frig.setDehumidifierMode(this.index,this.dehumidifiermode);
     if (responseDehum >= 0) this.mode = responseDehum;
@@ -230,7 +242,7 @@ class dehumidifierAppliance {
   async setRotationSpeed(value, callback) {
     var responseDehum = -1;
     // Is the device currently on? If not turn on device
-    if(this.mode == DEHMODE_DRY) {
+    if(this.mode == DRY) {
       responseDehum = await this.frig.setDehumidifierRelativeHumidity(this.index,this.HOMEKIT_TO_FANMODE[value]);
       if (responseDehum >= 0) this.fanMode = responseDehum;
     } 
@@ -241,7 +253,7 @@ class dehumidifierAppliance {
   // Handle requests to get the current value of the "LockPhysicalControls" characteristic
   async getLockPhysicalControls(callback) {
     var currentValue = this.Characteristic.LockPhysicalControls.CONTROL_LOCK_DISABLED;
-    if(this.childMode != 0) currentValue = this.Characteristic.LockPhysicalControls.CONTROL_LOCK_ENABLED;
+    if(this.uiMode != 0) currentValue = this.Characteristic.LockPhysicalControls.CONTROL_LOCK_ENABLED;
     return callback(null, currentValue);
   }
 
@@ -250,10 +262,10 @@ class dehumidifierAppliance {
     var responseDehum = -1;
     // Is the device currently on? If not turn on device
     if(this.mode != POWER_OFF) {
-      if(value == this.Characteristic.LockPhysicalControls.CONTROL_LOCK_ENABLED) responseDehum = await this.frig.setDehumidifierChildLock(this.index,CHILDMODE_ON);
-      else responseDehum = await this.frig.setDehumidifierChildLock(this.index,CHILDMODE_OFF);
+      if(value == this.Characteristic.LockPhysicalControls.CONTROL_LOCK_ENABLED) responseDehum = await this.frig.setDehumidifierChildLock(this.index,UI_ON);
+      else responseDehum = await this.frig.setDehumidifierChildLock(this.index,UI_OFF);
 
-      if (responseDehum >= 0) this.childMode = responseDehum;
+      if (responseDehum >= 0) this.uiMode = responseDehum;
         
     } 
     return callback(null);
@@ -284,7 +296,7 @@ async getWaterLevel(callback) {
   async setRelativeHumidityDehumidifier(value, callback) {
     var responseDehum = -1;
     // Is the device currently on? If not turn on device
-    if(this.mode == DEHMODE_DRY) {
+    if(this.mode == DRY) {
       responseDehum = await this.frig.setDehumidifierRelativeHumidity(this.index,value);
       if (responseDehum >= 35) this.targetHumidity = responseDehum;
     } 
@@ -293,7 +305,7 @@ async getWaterLevel(callback) {
 
   async getFilterChangeIndication(callback){
     var currentValue = this.Characteristic.FilterChangeIndication.FILTER_OK;
-    if ( this.filterStatus == FILTER_CHANGE) currentValue = this.Characteristic.FilterChangeIndication.CHANGE_FILTER;
+    if ( this.filterStatus == CHANGE) currentValue = this.Characteristic.FilterChangeIndication.CHANGE_FILTER;
     return callback(null, currentValue);
   }
   

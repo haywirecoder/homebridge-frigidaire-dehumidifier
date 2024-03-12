@@ -1,10 +1,12 @@
 "use strict";
 
 const CLEAN_AIR_MODE = '1004';
-const CLEANAIR_ON = 1;
-const CLEANAIR_OFF = 0;
-const POWER_ON = 1
-const POWER_OFF = 0
+const POWER_ON = 'ON'
+const POWER_OFF = 'OFF'
+
+const CLEANAIR_ON = 'ON'
+const CLEANAIR_OFF = 'OFF'
+
 
 const { HomeBridgeDehumidifierApplianceVersion } = require('../package.json');
 
