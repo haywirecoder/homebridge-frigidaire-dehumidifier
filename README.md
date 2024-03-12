@@ -4,13 +4,16 @@
 
 <p align="center">
  
-<img src="https://github.com/homebridge/branding/raw/master/logos/homebridge-wordmark-logo-vertical.png" width="150">
+<img src="https://github.com/homebridge/branding/blob/latest/logos/homebridge-color-round-stylized.png" width="150">
 
 </p>
 
 
 # Homebridge Plug-In for Frigidaire Dehumidifier
-An Homebridge plug-in to integrate the Frigidaire's connected dehumidifier with HomeKit. It monitors and control devices via the Frigidaire unofficial cloud API. Thanks to the Frigidaire Python API  https://github.com/bm1549/frigidaire developer, this module uses the logic gain from reviewing those libraries/code.
+An Homebridge plug-in to integrate the Frigidaire's connected dehumidifier with HomeKit. It monitors and control devices via the Frigidaire unofficial cloud API. Thanks to the Frigidaire Python API  https://github.com/bm1549/frigidaire developers and https://github.com/karlg100/frigidaire , this module uses logic and code gain from reviewing those works.
+Frigidaire updated their API (to V3) in June 2023 and deprecated v2 in February 2024, meaning the plug-in engine had to be re-written. Upgrade to version 2+ may impact previous automation or setting. This is a one time event to support Frigidaire v3 API.
+
+
 
 ## Limitation:
 * This module will poll for the status of the various components based frequency provided in the configuration file. No realtime notification is provided.
@@ -23,9 +26,8 @@ An Homebridge plug-in to integrate the Frigidaire's connected dehumidifier with 
 | username              | Frigidaire username. This is a required value.                    |
 | password              | Frigidaire password. This is a required value.                                                                 |
 | deviceRefresh        | Polling interval to obtain status of Frigidaire appliance, provided in seconds. Default to <i>90</i> seconds, this is an optional value. <b>Please note:</b> Small values may cause account lock or frequent API errors.                                                                    |
-| dehumidifierMode          | Homekit only has two mode dehumidifying modes "Auto" and "Dehumidifying". When "Dehumidifying" is selected in Homekit the selection is map to a specific Frigidaire appliance mode: "Quiet", "Dry" or Continuous". <p><p>Valid numeric values are the following: <br>5 = "Dry"<br>8 = "Continuous" <br> 9 = "Quiet" <p>The default mode for is <i>5</i> which is Frigidaire "Dry" mode. This an optional value.  
-| enableAirPurifier | Create additional tile for Air purifier/Ionizer functionality. Default to <i>true</i>, this is an optional value.                     
-| sessionKeyRefresh        | Refresh interval to obtain new a Frigidaire appliance key. The value is provided in hours and default to <i>9</i> hours, this is an optional value. <b>Please note:</b> Session key are valid for 12 hours, the plug-in does check if a valid session key is present before each operation and automatically tries to re-login, but this does generate an error in the log for an invalid session key. This value is for proactive session key refresh to prevent error from appearing in logs due to expiring key. Setting this value to <i>0</i> will disable session key refresh.                                     
+| dehumidifierMode          | Homekit only has two mode dehumidifying modes "Auto" and "Dehumidifying". When "Dehumidifying" is selected in Homekit the selection is map to a specific Frigidaire appliance mode: "Quiet", "Dry" or "Continuous". <p><p>Valid string values are the following: <br>"Dry"<br>"Continuous"<br>"Quiet"<p>The default mode for is Frigidaire "Dry" mode. This an optional value.  
+| enableAirPurifier | Create additional tile for Air purifier/Ionizer functionality. Default to <i>true</i>, this is an optional value.                                                         
 | excludedDevices         | Devices IDs to suppress from HomeKit. The device IDs can be obtain from Homebridge logs at startup of this plug-in. This is an optional value. | |
 
 
@@ -63,7 +65,7 @@ Example configuration is below, with Frigidaire dehumidifier mode set to <i>Quie
         "password": "<password>"
       },
       "deviceRefresh": 90,
-      "dehumidifierMode": 9,
+      "dehumidifierMode": "Quiet",
       "enableAirPurifier": true,
       "platform": "FrigidaireAppliance"
 }
