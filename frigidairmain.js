@@ -78,8 +78,9 @@ const COUNTRY = 'US'
  
 const decrypt = (data) => {
     return CryptoJS.enc.Base64.parse(data).toString(CryptoJS.enc.Utf8);
-}
-
+ }
+const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay))
+ 
 class Frigidaire extends EventEmitter {
     auth_token = {};
     excludedDevices = []
@@ -88,17 +89,22 @@ class Frigidaire extends EventEmitter {
     accessTokenRefreshHandle;
     deviceRefreshTime;
     accessTokenRefreshTime;
-    cid;
     deviceId;
-    country;
-    brand;
-    sessionKey;
     pollingInterval;
     persistPath;
-    attempts;
     frig_devices = [];
     lastUpdate;
     updateTimer = [];
+    v3globalxapikey;
+    v3oauthclientid;
+    v3oauthclientsecret;
+    v3refreshToken;
+    v3accessToken;
+    v3apikey;
+    v3domain;
+    v3datacenter;
+    v3httpregionalbaseurl;
+    v3appToken;
 
 
     constructor(log, config, persistPath) {
@@ -108,13 +114,9 @@ class Frigidaire extends EventEmitter {
         this.excludedDevices = config.excludedDevices || [];
         this.auth_token.username = config.auth.username;
         this.auth_token.password = config.auth.password;
-        this.cid = decrypt(constants.cid.data);
+        //this.cid = decrypt(constants.cid.data);
         this.deviceId = uuid4();
-        this.country =config.country || COUNTRY;
-        this.brand =BRAND;
-        this.sessionKey = null;
         this.deviceRefreshTime = config.deviceRefresh * 1000 || 90000; // default to 90 secs, so we don't hammer their servers
-        this.attempts = 0;
         this.lastUpdate = null;  
         this.isBusy = false;     
         this.v3globalxapikey = '3BAfxFtCTdGbJ74udWvSe6ZdPugP8GcKz3nSJVfg' //DO NOT CHANGE
@@ -127,13 +129,11 @@ class Frigidaire extends EventEmitter {
         this.v3datacenter = null
         this.v3httpregionalbaseurl = null
         this.v3appToken = null
-        this.authPending = true
-        this.authFailure = null
-        this.applianceInfo = null
 
     };
 
     
+   
 
     // Initialization routine
     async init() {
@@ -156,12 +156,7 @@ class Frigidaire extends EventEmitter {
             if((this.v3accessToken != null) && (this.v3refreshToken!=null)) this.log.info("Frigidaire: Using local access token");
             
         }
-        //this.v3accessToken = 'ReturneyJraWQiOiIxMGZhMWQwOWY4YjM2OGFjYmE4YmRiNDYxOTFmZmVhODE1MmZiM2YzZjQ5N2RhZjk1OWFjNWIzNDM5ZDI3OGY0IiwiYWxnIjoiUlMyNTYiLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE3MTAwNDA5MjEsImlzcyI6Imh0dHBzOi8vYXBpLm9jcC5lbGVjdHJvbHV4Lm9uZS9vbmUtYWNjb3VudC1hdXRob3JpemF0aW9uIiwiYXVkIjoiaHR0cHM6Ly9hcGkub2NwLmVsZWN0cm9sdXgub25lIiwiZXhwIjoxNzEwMDg0MTIxLCJzdWIiOiI5YTE3NjJjOTA2ZGU0M2RlYjg4YmZlNWMyZDMzYWYzMiIsImF6cCI6IkZyaWdpZGFpcmVPbmVBcHAiLCJzY29wZSI6ImVtYWlsIG9mZmxpbmVfYWNjZXNzIGVsdXhpb3Q6KjoqOioiLCJvY2MiOiJVUyJ9.IwKdbFLY659BeKEKbxa7w0Frv1Z1vvQqu4GfhMcWpSwnlSTX3kRuwwJuyGxGG9n5wRxtjGTic0cMxa_e0p8NjmS6bwKqGjGQVbkOssKWyBFoFXtNoAhW5jwmWi096KJrwoT-xMKuHuWkkAxEpyXp28HS2l-AOnY1v7JvPvyR7kSYUw0oCnMMQJ23cpKJZSjY9HNrUjJbQmtGtD14Dtech3pm90VygSAmh_VJGsGPlG3QquQN9KtSZ--7ga43sXjIqtBN1bWVByTxULjPp-O157ExGE8J6InjBqJgCYZqnCGZ4SDsJCExIIFMeWEVH6r9IOzYHYeX74lUf4jTwcIvJg'
-        //this.v3refreshToken = 'ReturnbeW8N1x4loL23TMVg9Q8QmSvAEamGqdn2es9Rc9bLrX1PvSgc9bAYTe2SIbvOTBqTYtt4YgDIErlADY2wWABuvyGipGOwqw3pBvTxsB2iV5NCJPdE4Ajk03hA0gyWJyK'
-     
-       
-       
-        
+        // Login frigidaire service    
         try {
              // If end information is not present obtain
             if (this.v3httpregionalbaseurl == null) {
@@ -194,9 +189,14 @@ class Frigidaire extends EventEmitter {
                 return false;
 
         }
-        // Login was successful display new access date and discover devices
+        // Login was successful display new access date 
         this.log.info('Frigidaire: ' + this.getAccessTokenInfo());
+        // Set access token renewal
+        //this.accessTokenRefreshHandle = setTimeout(() => this.refreshAccessToken(), this.getAccessTokenTimeout()); 
+
         await this.discoverDevices();
+        //await sleep(1000*5)
+        await this.setDevicePowerMode(0,true);
         return true;
     }
 
@@ -211,9 +211,7 @@ class Frigidaire extends EventEmitter {
             "scope": ""
         }
 
-        this.log.debug('Attempting to login...');
-        this.isBusy = true;
-
+        this.log.debug('Getting Endpoint details...');
         try {
             const responseEndToken = await superagent
                                 .post('https://api.ocp.electrolux.one/one-account-authorization/api/v1/token')
@@ -255,17 +253,16 @@ class Frigidaire extends EventEmitter {
                 storage.setItem('frigidaire_apptoken',this.v3appToken);
 
             }
-            this.authPending = false
             return true;
 
         }  
         catch (err) {
                 this.log.error("Frigidaire Endpoint Error: ", err.status,  err.message);
-                this.isBusy = false;
                 return false;
          }
     }
 
+    // Do full login using username and password. This will obtain a new access token and refresh token
     async authenticate() {
         var loginUrl = 'https://accounts.' + this.v3domain + '/accounts.login'
         var queryString = 'format=json&httpStatusCodes=false&include=id_token&apikey=' + this.v3apikey + '&loginID=' + this.auth_token.username + '&password=' + this.auth_token.password
@@ -279,7 +276,7 @@ class Frigidaire extends EventEmitter {
         }
         // Login URL
         
-        this.log.debug('Frigidaire Login URL: ' +  fullLoginUrl)
+        this.log.debug("Frigidaire authenticate URL: " +  fullLoginUrl);
 
         try {
             const fullLoginResponse = await superagent
@@ -327,20 +324,18 @@ class Frigidaire extends EventEmitter {
                     storage.setItem('frigidaire_accesstoken',this.v3accessToken);
                     storage.setItem('frigidaire_refreshtoken',this.v3refreshToken);
                 }
-                this.authPending = false
             }
+            this.log.debug("Frigidaire Authenticate complete");
             return true;
         }
         catch (err) {
             this.log.error("Frigidaire Login Error: ", err.status,  err.message);
-            this.isBusy = false;
             return false;
         }
     }
 
     // Discover devices in account and built out the the array
     async discoverDevices () {
-
 
         var uri = '/appliance/api/v2/appliances?includeMetadata=true'
         var headers = {
@@ -351,6 +346,8 @@ class Frigidaire extends EventEmitter {
             'Authorization': 'Bearer ' + this.v3accessToken.trim()
         }
 
+        this.log.debug("Frigidaire device discover: " +  this.v3httpregionalbaseurl + uri);
+
         try {
             const responseDevice = await superagent
                                 .get(this.v3httpregionalbaseurl + uri)
@@ -358,10 +355,10 @@ class Frigidaire extends EventEmitter {
                                 .disableTLSCerts();
 
             if (responseDevice.statusCode < 199 || responseDevice.statusCode > 299) {
-                    this.log.error("Frigidaire Endpoint Get Error: " + responseDevice.body.error + " " + responseDevice.body.message);
+                    this.log.error("Frigidaire device discover get Error: " + responseDevice.body.error + " " + responseDevice.body.message);
             }
+           
             var deviceJSON = responseDevice.body;
-
             // create device list from user profile.
             for(var i in deviceJSON) {
                 // used for debugging -- Dump all devices discovered at start up
@@ -409,6 +406,7 @@ class Frigidaire extends EventEmitter {
             return false;
 
         }
+        this.log.debug("Frigidaire device discover complete");
         return true;
     }
 
@@ -428,6 +426,8 @@ class Frigidaire extends EventEmitter {
             'Authorization': 'Bearer ' + this.v3accessToken.trim()
         }
 
+
+        this.log.debug("Frigidaire device refresh: " +  this.v3httpregionalbaseurl + uri);
         try {
             const responseDevice = await superagent
                                 .get(this.v3httpregionalbaseurl + uri)
@@ -435,7 +435,7 @@ class Frigidaire extends EventEmitter {
                                 .disableTLSCerts();
 
             if (responseDevice.statusCode < 199 || responseDevice.statusCode > 299) {
-                    this.log.error("Frigidaire Endpoint Get Error: " + responseDevice.body.error + " " + responseDevice.body.message);
+                    this.log.error("Frigidaire refresh device get Error: " + responseDevice.body.error + " " + responseDevice.body.message);
             }
             var deviceJSON = responseDevice.body;
 
@@ -446,42 +446,47 @@ class Frigidaire extends EventEmitter {
                  var findIndex = this.frig_devices.findIndex(device => device.deviceId === deviceJSON[i]['applianceId']);
                  if (findIndex > -1)
                  { 
-                    this.log.debug(`Found device at index: ${findIndex}`);
+                    this.log.debug("Found device at index: " + findIndex);
                     var deviceStatus = deviceJSON[i]['properties']['reported'];
-                    this.frig_devices[findIndex].roomHumidity = deviceStatus['sensorHumidity'];
-                    this.frig_devices[findIndex].targetHumidity = deviceStatus['targetHumidity'];
-                    this.frig_devices[findIndex].mode = deviceStatus['mode'];
-                    this.frig_devices[findIndex].filterStatus = deviceStatus['filterState'];
-                    this.frig_devices[findIndex].fanMode = deviceStatus['fanSpeedSetting'];
-                    this.frig_devices[findIndex].clearAirMode = deviceStatus['cleanAirMode'];
-                    this.frig_devices[findIndex].childMode = deviceStatus['uiLockMode'];
-                    this.frig_devices[findIndex].bucketStatus = deviceStatus['waterBucketLevel'];
-                    //Determine if anything has changed since last get, if yes update lastupdate date.
-                    var hasMonitoredValuesChanged = "" + this.frig_devices[deviceIndex].roomHumidity 
-                                 + this.frig_devices[deviceIndex].mode 
-                                 + this.frig_devices[deviceIndex].filterStatus 
-                                 + this.frig_devices[deviceIndex].fanMode 
-                                 + this.frig_devices[deviceIndex].clearAirMode
-                                 + this.frig_devices[deviceIndex].bucketStatus
-                                 + this.frig_devices[deviceIndex].targetHumidity;
+                     //Determine if anything has changed since last get, if yes update lastupdate date.
+                    var hasMonitoredValuesChanged = deviceStatus['sensorHumidity']
+                                 + deviceStatus['mode'] 
+                                 + deviceStatus['filterState']
+                                 + deviceStatus['fanSpeedSetting']
+                                 + deviceStatus['cleanAirMode']
+                                 + deviceStatus['waterBucketLevel']
+                                 + deviceStatus['targetHumidity'];
         
-                    if (hasMonitoredValuesChanged != this.frig_devices[deviceIndex].monitoredValues) {
-                        this.frig_devices[deviceIndex].monitoredValues = hasMonitoredValuesChanged;
-                        this.frig_devices[deviceIndex].lastupdate = Date.now();
-                        this.emit(this.frig_devices[deviceIndex].deviceId, {
-                            device: this.frig_devices[deviceIndex]
+                    if (hasMonitoredValuesChanged != this.frig_devices[findIndex].monitoredValues) {
+                        this.log.debug("Device Update detected.");
+                        this.frig_devices[findIndex].monitoredValues = hasMonitoredValuesChanged;
+                        this.frig_devices[findIndex].lastupdate = Date.now();
+                        this.frig_devices[findIndex].roomHumidity = deviceStatus['sensorHumidity'];
+                        this.frig_devices[findIndex].targetHumidity = deviceStatus['targetHumidity'];
+                        this.frig_devices[findIndex].mode = deviceStatus['mode'];
+                        this.frig_devices[findIndex].filterStatus = deviceStatus['filterState'];
+                        this.frig_devices[findIndex].fanMode = deviceStatus['fanSpeedSetting'];
+                        this.frig_devices[findIndex].clearAirMode = deviceStatus['cleanAirMode'];
+                        this.frig_devices[findIndex].childMode = deviceStatus['uiLockMode'];
+                        this.frig_devices[findIndex].bucketStatus = deviceStatus['waterBucketLevel'];
+                        this.emit(this.frig_devices[findIndex].deviceId, {
+                            device: this.frig_devices[findIndex]
                         })
                     }
+                   
                 }
-                else this.log.debug(`Device not found: ${deviceJSON[i]['applianceId']}`)
+                else this.log.debug(`Device not found: ${deviceJSON[i]['applianceId']}`);
             }
         }
         catch (err) {
             this.log.error("Frigidaire Device Error: ", err.status,  err.message);
+            this.isBusy = false;
             return false;
 
         }
         this.isBusy = false;
+        this.log.debug("Frigidaire device refresh complete.");
+        return true;
     }
 
     // Uses the Frigidaire API to fetch details for a given appliance
@@ -496,20 +501,22 @@ class Frigidaire extends EventEmitter {
             'x-api-key': this.v3globalxapikey,
             'Authorization': 'Bearer ' + this.v3accessToken.trim()
         }
-        var devicelIDbody = {
+        var deviceBody = {
             "applianceIds": deviceID
         }
 
+
+        this.log.debug("Frigidaire device detail: " + this.v3httpregionalbaseurl + uri);
         try {
             const responseDevice = await superagent
                     .post(this.v3httpregionalbaseurl + uri)
                     .set(headers) 
-                    .send(devicelIDbody) // sends a JSON post body
+                    .send(deviceBody) // sends a JSON post body
                     .disableTLSCerts();
 
             var deviceJSON = responseDevice.body;
 
-            // create device list from user profile.
+            // create detail information list from return values
             for(var i in deviceJSON) {
                 detailForDevice.modelName = deviceJSON[i].model;
                 detailForDevice.modelVariant = deviceJSON[i].variant;
@@ -522,39 +529,9 @@ class Frigidaire extends EventEmitter {
             this.log.error('Frigidaire device detail Error: ',err);
             return false;
         }
+        this.log.debug("Frigidaire device detail complete.");
         return detailForDevice;
     }   
-
-    //  Makes a get request to the Frigidaire API and parses the result
-    async getRequest(endpoint) {
-        
-        var url = APIURLV3 + endpoint;
-        var headers = {
-            'x-ibm-client-id': this.cid,
-            'User-Agent': 'Frigidaire/81 CFNetwork/1206 Darwin/20.1.0',
-            'x-api-key': this.cid,
-            'Content-Type': 'application/json',
-            'Authorization': 'Basic ' + this.cid,
-        }
-   
-        headers['session_token'] = this.sessionKey;
-        try {
-            const response = await superagent
-                                .get(url)
-                                .set(headers)
-                                .disableTLSCerts();
-            if (response.body.status == 'ERROR' && response.body.code != 'ECP0000') {
-                this.log.error("Frigidaire Get Error: " + response.body.code + " " + response.body.message + " EndPoint: " + endpoint);
-             } 
-            else { 
-                this.log.debug('Get Request complete',response.body.message );
-                return (response.body.data);
-            }
-          } 
-          catch (err) {
-            this.log.error('Frigidaire Get Error: ', err.response.body.code +' ' + err.response.body.message + " EndPoint: " + endpoint);
-         }
-    }
 
     async setDevicePowerMode(deviceIndex, onValue = false){
           // Is request out of bounds base on discovered device?
@@ -654,7 +631,7 @@ class Frigidaire extends EventEmitter {
         return -1;
     }
 
-    async setDehumidifierChildLock(deviceIndex, modeValue = UI_OFF){
+    async setDehumidifierUILock(deviceIndex, modeValue = UI_OFF){
            // Is request out of bounds base on discovered device?
         if(this.frig_devices.length <= deviceIndex) return false;
         // Is a dehumidifier appliance?
@@ -675,42 +652,41 @@ class Frigidaire extends EventEmitter {
     // Executes any defined action on a given appliance. Will authenticate if the request fails
     async sendDeviceCommand(deviceIndex,attribute, value) {
        
-
         let uri = this.v3httpregionalbaseurl + '/appliance/api/v2/appliances/' + this.frig_devices[deviceIndex].deviceId + '/command'
-       
         var headers = {
             "User-Agent": "Ktor client",
-            "Accept": "application/json",
-            'content-type': 'application/json',
-            'x-api-key': this.v3globalxapikey,
-            'Authorization': 'Bearer ' + t+ this.v3accessToken.trim()
+                "Accept": "application/json",
+                'content-type': 'application/json',
+                'x-api-key': this.v3globalxapikey,
+                'Authorization': 'Bearer ' +  this.v3accessToken.trim()
         }
 
-        var postBody = {}
-        postBody[attribute] = value
-        
-    
-        
-        // Block other activities during updates
+        var action = {}
+        action[attribute] = value
+
+        this.log.debug("Sending command to..." + uri);
+        this.log.debug("Action command: " + JSON.stringify(action));
+
         this.isBusy = true;
-        try {
+        // Block other activities during updates
+       try {
             const response = await superagent
-                                .post(uri)
-                                .send(postBody)
+                                .put(uri)
                                 .set(headers)
+                                .send(action)
                                 .disableTLSCerts();
             if (response.statusCode != 200) {
-                this.log.error('Frigidaire post Error: ' + response.body.code + ' ' + response.body.message);
+                this.log.error('Frigidaire Send Error: ' + response.body.code + ' ' + response.body.message);
             }
             else
                {
                 this.isBusy = false;
-                this.log.debug('Post Command complete', response.body.message);
+                this.log.debug('Send Command complete');
                 return response.statusCode;
                }
         }
           catch (err) {
-            this.log.error('Frigidaire post Error: ', err.response.body.code +' ' + err.response.body.message);
+            this.log.error('Frigidaire post Error: ',  err.status,  err.message);
          } 
          this.isBusy = false;
          return -1;
@@ -720,11 +696,11 @@ class Frigidaire extends EventEmitter {
     startPollingProcess()
     {
         // Set time to refresh devices
-        this.deviceRefreshHandle = setTimeout(() => this.backgroundRefresh(), this.deviceRefreshTime); 
-       
+        this.deviceRefreshHandle = setTimeout(() => this.backgroundRefresh(), this.deviceRefreshTime);       
      
     };
 
+    // Determine if access token is still validated
     isAccessTokenExpired() {
         let parsedAccessToken =  JSON.parse(Buffer.from(this.v3accessToken.split('.')[1], 'base64').toString());
         if ((parsedAccessToken['exp'] * 1000) - 600000 > Date.now()) {
@@ -733,6 +709,7 @@ class Frigidaire extends EventEmitter {
         else return true;
     }
 
+     // Get Access token details/information
     getAccessTokenInfo() {
         let parsedAccessToken =  JSON.parse(Buffer.from(this.v3accessToken.split('.')[1], 'base64').toString());
         let expDateStr = new Date(parsedAccessToken['exp'] * 1000).toISOString()
@@ -742,6 +719,7 @@ class Frigidaire extends EventEmitter {
         return ('Access Token | Expiration: ' + expDateStr + ' Issued: ' + issuedDateStr + ' Renew at: ' + renewDateStr + ' Now: ' + nowDateStr);
     }
 
+    // From expiration time of access token determine time to obtain new access using refresh token.
     getAccessTokenTimeout() {
         let parsedAccessToken =  JSON.parse(Buffer.from(this.v3accessToken.split('.')[1], 'base64').toString());
         let accessTokenExpTime = new Date((parsedAccessToken['exp'] * 1000) - 600000)
@@ -761,7 +739,8 @@ class Frigidaire extends EventEmitter {
             clearTimeout(this.accessTokenRefreshHandle);
             this.accessTokenRefreshHandle = null;
         }
-
+       
+        this.isBusy = true;
         // Are we past period that refreshing token can be used?
         if (this.getAccessTokenTimeout() != 0) {
 
@@ -789,6 +768,7 @@ class Frigidaire extends EventEmitter {
 
                 if (responseRefreshToken.statusCode < 200 || responseRefreshToken.statusCode > 299) {
                     this.log.error('Frigidaire token error: ' + responseRefreshToken.body.error + ' ' + responseRefreshToken.body.message)
+                    this.isBusy = false;
                     return false;
                 }
                 else {
@@ -808,12 +788,15 @@ class Frigidaire extends EventEmitter {
             }
         } else {
 
-            const authResponse = await this.authenticate();
-            if (!authResponseRefresh) return false;
+            const authResponseRefresh = await this.authenticate();
+            if (!authResponseRefresh) {
+                this.isBusy = false;
+                return false;
+            }
 
         }
         this.accessTokenRefreshHandle = setTimeout(() => this.refreshAccessToken(), this.getAccessTokenTimeout()); 
-       
+        this.isBusy = false;
         return true;
     }
 
@@ -828,21 +811,23 @@ class Frigidaire extends EventEmitter {
         if (this.isBusy) {
            this.log.warn("Another process is already updating. Skipping Interval Update.")
            this.deviceRefreshHandle = setTimeout(() => this.backgroundRefresh(), this.deviceRefreshTime); 
-           return;
+           return false;
         }
-        // Do we have valid sessions? 
-        var authResponse = true;
-        if (!(await this.isValidSession())) {
-           // session is expired or not login, get new session key
-           this.log.warn('Background refreshing detected sessions is no longer valid, attempting to re-login.',);
-            authResponse = await this.authenticate();
-            if (authResponse) this.log.info('re-login successful.')
+        // Do we have valid token? 
+        var authResponseRefresh = true;
+        if (this.isAccessTokenExpired()) {
+            // obtain new access token
+            authResponseRefresh = await this.refreshAccessToken();
+            if (authResponseRefresh) this.log.info('Frigidaire: Obtained new Access token from Refresh token in background process'); 
+            
         }
+
         // Update data elements
-        if (authResponse) await this.refreshDevices();
+        if (authResponseRefresh) await this.refreshDevices();
       
         // Set timer to refresh devices
         this.deviceRefreshHandle = setTimeout(() => this.backgroundRefresh(), this.deviceRefreshTime); 
+        return true;
     }
 }
 
