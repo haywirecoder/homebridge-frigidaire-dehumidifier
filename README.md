@@ -11,7 +11,7 @@
 
 # Homebridge Plug-In for Frigidaire Dehumidifier
 An Homebridge plug-in to integrate the Frigidaire's connected dehumidifier with HomeKit. It monitors and control devices via the Frigidaire unofficial cloud API. Thanks to the Frigidaire Python API  https://github.com/bm1549/frigidaire developers and https://github.com/karlg100/frigidaire , this module uses logic and code gain from reviewing those works.
-Frigidaire updated their API (to V3) in June 2023 and deprecated v2 in February 2024, meaning the plug-in engine had to be re-written. Upgrade to version 2+ may impact previous automation or setting. This is a one time event to support Frigidaire v3 API.
+Frigidaire updated their API to v3 in June 2023 and deprecated v2 in February 2024, meaning the plug-in engine had to be re-written. Upgrade to version 2+ may impact previous automation or setting. This is a one time event to support Frigidaire v3 API.
 
 
 
