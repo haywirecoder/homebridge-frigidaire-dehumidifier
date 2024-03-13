@@ -39,7 +39,7 @@
         },
         "dehumidifierMode": {
           "title": "Dehumidifying Mode",
-          "type": "integer",
+          "type": "string",
           "description": "Homekit only has two mode dehumidifying modes <i>auto</i> and <i>dehumidifying</i>. When dehumidifying is selected this select will be map to Frigidaire appliance mode. ",
           "required": true,
           "default": 5,
