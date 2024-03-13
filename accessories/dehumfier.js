@@ -40,7 +40,7 @@ class dehumidifierAppliance {
     this.dehumidifiermode = config.dehumidifierMode || DRY; 
     this.serialNumber = device.serialNumber
     this.firmware = device.firmwareVersion || HomeBridgeDehumidifierApplianceVersion;
-    this.humidity = device.roomHumidity || 0;
+    this.humidity = device.roomHumidity || 35;
     this.mode = device.mode || POWER_OFF;
     this.uiMode = device.uiMode || UI_OFF;
     this.fanMode = device.fanMode || LOW;
@@ -69,14 +69,13 @@ class dehumidifierAppliance {
       [HIGH]: 3,
       [LOW]: 4
     };
-  
   }
 
   refreshState(eventData)
   {
     this.log.debug(`Appliance updated requested: ` , eventData);
     var dehumidifierService = this.accessory.getService(this.Service.HumidifierDehumidifier);
-    this.humidity = eventData.device.roomHumidity || 0;
+    this.humidity = eventData.device.roomHumidity || 35;
     this.mode = eventData.device.mode || POWER_OFF;
     this.uiMode = eventData.device.uiMode || UI_OFF;
     this.fanMode = eventData.device.fanMode || LOW;
@@ -304,8 +303,9 @@ async getWaterLevel(callback) {
   }
 
   async getFilterChangeIndication(callback){
-    var currentValue = this.Characteristic.FilterChangeIndication.FILTER_OK;
-    if ( this.filterStatus == CHANGE) currentValue = this.Characteristic.FilterChangeIndication.CHANGE_FILTER;
+    // Set change filter indicator for anything aside from "Good"
+    var currentValue = this.Characteristic.FilterChangeIndication.CHANGE_FILTER;
+    if ( this.filterStatus == GOOD) currentValue = this.Characteristic.FilterChangeIndication.FILTER_OK;
     return callback(null, currentValue);
   }
   
