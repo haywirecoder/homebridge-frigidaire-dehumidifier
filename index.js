@@ -7,8 +7,7 @@ const PLUGIN_NAME = 'homebridge-frigidaire-dehumidifier';
 const PLATFORM_NAME = 'FrigidaireAppliance';
 
 const CLEAN_AIR_MODE = '1004';
-const AIR_CONDITIONER = "AC1";
-const DEHUMIDIFIER = "DH1";
+const DEHUMIDIFIER = "DH";
 
 var Service, Characteristic, HomebridgeAPI, UUIDGen;
 
@@ -29,6 +28,8 @@ class FrigidaireAppliancePlatform {
   this.name = config.name;
   this.config = config;
   this.accessories = [];
+  this.persistPath = undefined;
+    
   
   // Check if authentication information has been provided.
   try{
@@ -49,8 +50,11 @@ class FrigidaireAppliancePlatform {
   // Determine if purifiers should be enabled
   this.enableAirPurifier  = this.config.enableAirPurifier ?? true;
 
+  // Homebridge storage folder for local storage of access and refresh token
+  this.persistPath = api.user.persistPath();
+
   // Create new frigidaire device retrival object
-  this.frig = new frigengine (log, this.config);
+  this.frig = new frigengine (log, this.config, this.persistPath);
  
   // When this event is fired it means Homebridge has restored all cached accessories from disk.
   // Dynamic Platform plugins should only register new accessories after this event was fired,
@@ -82,6 +86,7 @@ class FrigidaireAppliancePlatform {
     for (var i = 0; i < this.frig.frig_devices.length; i++) {
 
       let currentDevice = this.frig.frig_devices[i];
+      this.log.debug(this.frig.frig_devices[i]);
       // Confirm appliance is a dehumidifier
       if (currentDevice.destination == DEHUMIDIFIER) {
         this.log(`Configuring ${currentDevice.name} with a Device ID: ${currentDevice.deviceId}`);

@@ -6,14 +6,6 @@ const uuid4 = require('uuid4');
 const constants = require('./constants.json');
 const storage = require('node-persist');
 
-
-// URL constant for retrieving data
-
-const APIURLV3 = 'https://api.us.ecp.electrolux.com'
-const BRAND = 'Frigidaire'
-const COUNTRY = 'US'
-
-
 // Writeable settings that are known valid names of Components.
 // These can be passed to the execute_action() API together with a target value
 // to change settings.
@@ -47,7 +39,6 @@ const COUNTRY = 'US'
  const FAN_SPEED_STATE = "fanSpeedState"
  const FILTER_STATE = "filterState"
  const NETWORK_INTERFACE = "networkInterface"
-
 
 // Dehumidifier Modes
  const DRY = 'DRY'
@@ -132,13 +123,9 @@ class Frigidaire extends EventEmitter {
 
     };
 
-    
-   
-
     // Initialization routine
     async init() {
 
-    
         // Retrieve login storage login information
          if(this.persistPath != undefined)
          {
@@ -189,14 +176,11 @@ class Frigidaire extends EventEmitter {
                 return false;
 
         }
-        // Login was successful display new access date 
+        // Login was successful display access token data
         this.log.info('Frigidaire: ' + this.getAccessTokenInfo());
-        // Set access token renewal
-        //this.accessTokenRefreshHandle = setTimeout(() => this.refreshAccessToken(), this.getAccessTokenTimeout()); 
-
         await this.discoverDevices();
-        //await sleep(1000*5)
-        await this.setDevicePowerMode(0,true);
+        // Set access token renewal
+        this.accessTokenRefreshHandle = setTimeout(() => this.refreshAccessToken(), this.getAccessTokenTimeout()); 
         return true;
     }
 
@@ -218,7 +202,6 @@ class Frigidaire extends EventEmitter {
                                 .send(appOneBody) // sends a JSON post body
                                 .disableTLSCerts();
             
-            //this.log.debug('FrigidaireApp App AccessToken: ' + responseEndToken.body['accessToken']);
             this.v3appToken = responseEndToken.body['accessToken']
 
             var appOneAccountHeader = {
@@ -446,8 +429,12 @@ class Frigidaire extends EventEmitter {
                  var findIndex = this.frig_devices.findIndex(device => device.deviceId === deviceJSON[i]['applianceId']);
                  if (findIndex > -1)
                  { 
-                    this.log.debug("Found device at index: " + findIndex);
+                    // Found device at the following index
+                    this.log.debug("Device Found: " + this.frig_devices[findIndex].deviceId)
+
+                    // Get update information from API for compare and updating.
                     var deviceStatus = deviceJSON[i]['properties']['reported'];
+                    
                      //Determine if anything has changed since last get, if yes update lastupdate date.
                     var hasMonitoredValuesChanged = deviceStatus['sensorHumidity']
                                  + deviceStatus['mode'] 
