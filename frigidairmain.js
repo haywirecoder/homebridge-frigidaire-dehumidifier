@@ -498,7 +498,7 @@ class Frigidaire extends EventEmitter {
         }
         catch (err) {
 
-            this.log.error('Frigidaire device detail Error: ',err);
+            this.log.error('Frigidaire device detail Error: ', err.status,  err.message);
             return false;
         }
         this.log.debug("Frigidaire device detail complete.");
@@ -562,8 +562,9 @@ class Frigidaire extends EventEmitter {
         return -1;
     }
     
-    async setDehumidifierRelativeHumidity(deviceIndex, humidityLevel = 50){
+    async setDehumidifierRelativeHumidity(deviceIndex, humidityLevel = 50) {
         // Is request out of bounds base on discovered device?
+
         if(this.frig_devices.length <= deviceIndex) return false;
         // Is a dehumidifier appliance?
         if(this.frig_devices[deviceIndex].destination != DEHUMIDIFIER) return false;
