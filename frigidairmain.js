@@ -206,7 +206,7 @@ class Frigidaire extends EventEmitter {
                 'Authorization': 'Bearer ' + this.v3appToken 
             }
             const responseEndPointDetails = await superagent
-                                .get('https://api.ocp.electrolux.one/one-account-user/api/v1/identity-providers?brand=frigidaire&email=' + this.auth_token.username)
+                                .get('https://api.ocp.electrolux.one/one-account-user/api/v1/identity-providers?brand=frigidaire&countryCode=US')
                                 .set(appOneAccountHeader)
                                 .disableTLSCerts();
 
@@ -244,7 +244,7 @@ class Frigidaire extends EventEmitter {
         var queryString = 'format=json&httpStatusCodes=false&include=id_token&apikey=' + this.v3apikey + '&loginID=' + this.auth_token.username + '&password=' + this.auth_token.password
         var fullLoginUrl = loginUrl + '?' + queryString;
         var loginHeader = {
-            "User-Agent": "frigidaireApp/5855 CFNetwork/1335.0.3.1 Darwin/21.6.0",
+            "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 12; sdk_gphone64_x86_64 Build/SE1A.220826.008)",
             "Accept": "application/json",
             'content-type': 'application/json'
         }
