@@ -6,6 +6,9 @@ const TARGETHUM = 40;
  const CLEAN = "CLEAN"
  const GOOD = "GOOD"
  
+const DEHUMIDIFIER = "DH"; // GHDD5035W1, GHDD3035W1, FGAC5045W1
+const DEHUMIDIFIERWITHPUMP = "Husky"; //FHDD5033W1, FHDD2233W1
+
 // Dehumidifier Modes
 const DRY = 'DRY'
 const AUTO = 'AUTO'
@@ -47,6 +50,7 @@ class dehumidifierAppliance {
     this.targetHumidity = device.targetHumidity || TARGETHUM;
     this.filterStatus = device.filterStatus || GOOD;
     this.waterBucketStatus = device.bucketStatus || 0;
+    this.destination = device.destination || DEHUMIDIFIER;
     
     this.deviceId = device.deviceId.toString();
     this.log = log;
@@ -139,14 +143,9 @@ class dehumidifierAppliance {
       .on("get",  async callback => this.getRotationSpeed(callback))
       .on('set', async (state, callback) => this.setRotationSpeed(state, callback)); 
     
-    // Optional Characteristics
     dehumidifierService.getCharacteristic(this.Characteristic.WaterLevel)
       .on('get', async callback => this.getWaterLevel(callback));
-       
-    dehumidifierService.getCharacteristic(this.Characteristic.LockPhysicalControls)
-       .on('get', async callback => this.getLockPhysicalControls(callback))
-       .on('set', async (state, callback)  => this.setLockPhysicalControls(state, callback));
-
+    
     dehumidifierService.getCharacteristic(this.Characteristic.RelativeHumidityDehumidifierThreshold)
         .setProps({
             minValue: 35,
@@ -155,7 +154,12 @@ class dehumidifierAppliance {
         })
         .on('get', async callback => this.getRelativeHumidityDehumidifier(callback))
         .on('set', async (state, callback)  => this.setRelativeHumidityDehumidifier(state, callback));
- 
+
+    if (this.destination != DEHUMIDIFIERWITHPUMP) {
+      dehumidifierService.getCharacteristic(this.Characteristic.LockPhysicalControls)
+       .on('get', async callback => this.getLockPhysicalControls(callback))
+       .on('set', async (state, callback)  => this.setLockPhysicalControls(state, callback));}
+
     // Create filter for notification
     var filterService = this.accessory.getService(this.Service.FilterMaintenance);
     if(filterService == undefined) filterService = this.accessory.addService(this.Service.FilterMaintenance, this.name + " Filter");
