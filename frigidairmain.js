@@ -22,10 +22,11 @@ const storage = require('node-persist');
  const CLEAN = "CLEAN"
  const GOOD = "GOOD"
 
+const DEHUMIDIFIER = "DH"; // GHDD5035W1, GHDD3035W1, FGAC5045W1
+const DEHUMIDIFIERWITHPUMP = "Husky"; //FHDD5033W1, FHDD2233W1
 
  const FAHRENHEIT = "FAHRENHEIT"
  const CELSIUS = "CELSIUS"
- const DEHUMIDIFIER = "DH";
  const DISPLAY_LIGHT = "displayLight"
  const CLEAN_AIR_MODE = "cleanAirMode"
  const SENSOR_HUMIDITY = "sensorHumidity"
@@ -249,7 +250,6 @@ class Frigidaire extends EventEmitter {
             'content-type': 'application/json'
         }
         // Login URL
-        
         this.log.debug("Frigidaire authenticate URL: " +  fullLoginUrl);
 
         try {
@@ -341,35 +341,73 @@ class Frigidaire extends EventEmitter {
                     
                 } else {
                     var device = {};
-                    var deviceStatus = deviceJSON[i]['properties']['reported'];
-                    device.deviceId = deviceJSON[i]['applianceId'];
-                    device.name = deviceJSON[i]['applianceData']['applianceName'];
-                    device.destination = deviceJSON[i]['applianceData']['modelName'];
-                    device.roomHumidity = deviceStatus['sensorHumidity'];
-                    device.targetHumidity = deviceStatus['targetHumidity'];
-                    device.mode = deviceStatus['mode'];
-                    device.filterStatus = deviceStatus['filterState'];
-                    device.fanMode = deviceStatus['fanSpeedSetting'];
-                    device.clearAirMode = deviceStatus['cleanAirMode'];
-                    device.childMode = deviceStatus['uiLockMode'];
-                    device.bucketStatus = deviceStatus['waterBucketLevel'];
-                    device.firmwareVersion = deviceStatus['networkInterface']['swVersion'];
-                    device.pnc = device.deviceId.split(':')[0].split('_')[0];
-                    device.elc = device.deviceId.split(':')[0].split('_')[1];
-                    device.serialNumber = device.deviceId.split(':')[1].split('-')[0];
-                    device.mac = device.deviceId.split(':')[1].split('-')[1];
-                    let applianceIdArray = [device.deviceId];
-                    device.model = await this.getDetailForDevice(applianceIdArray);
-                     // storage values to determine if anything needs to be updated.
-                    device.monitoredValues = device.roomHumidity 
-                        + device.mode 
-                        + device.filterStatus 
-                        + device.fanMode 
-                        + device.clearAirMode
-                        + device.bucketStatus
-                        + device.targetHumidity;
-                    device.lastUpdate = Date.now();
-                    this.frig_devices.push(device);
+                    var applianceIdArray = [];
+                    
+                    switch (deviceJSON[i]['applianceData']['modelName']) {
+                        case DEHUMIDIFIER:
+                            var deviceStatus = deviceJSON[i]['properties']['reported'];
+                            device.deviceId = deviceJSON[i]['applianceId'];
+                            device.name = deviceJSON[i]['applianceData']['applianceName'];
+                            device.destination = deviceJSON[i]['applianceData']['modelName'];
+                            device.roomHumidity = deviceStatus['sensorHumidity'];
+                            device.targetHumidity = deviceStatus['targetHumidity'];
+                            device.mode = deviceStatus['mode'];
+                            device.filterStatus = deviceStatus['filterState'];
+                            device.fanMode = deviceStatus['fanSpeedSetting'];
+                            device.clearAirMode = deviceStatus['cleanAirMode'];
+                            device.childMode = deviceStatus['uiLockMode'];
+                            device.bucketStatus = deviceStatus['waterBucketLevel'];
+                            device.firmwareVersion = deviceStatus['networkInterface']['swVersion'];
+
+                            device.pnc = device.deviceId?.split(':')[0]?.split('_')[0] ?? 0;
+                            device.elc = device.deviceId?.split(':')[0]?.split('_')[1] ?? 0;
+                            device.serialNumber = device.deviceId?.split(':')[1]?.split('-')[0] ?? 0;
+                            device.mac = device.deviceId?.split(':')[1]?.split('-')[1] ?? 0;
+
+                            applianceIdArray = [device.deviceId];
+                            device.model = await this.getDetailForDevice(applianceIdArray);
+                            // storage values to determine if anything needs to be updated.
+                            device.monitoredValues = device.roomHumidity 
+                                + device.mode 
+                                + device.filterStatus 
+                                + device.fanMode 
+                                + device.clearAirMode
+                                + device.bucketStatus
+                                + device.targetHumidity;
+                            device.lastUpdate = Date.now();
+                            this.frig_devices.push(device);
+                        break;
+                        case DEHUMIDIFIERWITHPUMP:
+                            var deviceStatus = deviceJSON[i]['properties']['reported'];
+                            device.deviceId = deviceJSON[i]['applianceId'];
+                            device.name = deviceJSON[i]['applianceData']['applianceName'];
+                            device.destination = deviceJSON[i]['applianceData']['modelName'];
+                            device.roomHumidity = deviceStatus['sensorHumidity'];
+                            device.targetHumidity = deviceStatus['targetHumidity'];
+                            device.mode = deviceStatus['mode'];
+                            device.filterStatus = deviceStatus['filterState'];
+                            device.fanMode = deviceStatus['fanSpeedSetting'];
+                            device.bucketStatus = (deviceStatus['waterTankFull'] == "NO") ? 0 : 100;
+                            device.firmwareVersion = deviceStatus['networkInterface']['swVersion'];
+                            device.applianceState = deviceStatus['applianceState'];
+                            device.condensatePump = deviceStatus['condensatePump'];
+                            device.serialNumber = 0;
+                            
+                            // storage values to determine if anything needs to be updated.
+                            device.monitoredValues = device.roomHumidity 
+                                + device.mode 
+                                + device.filterStatus 
+                                + device.fanMode 
+                                + device.bucketStatus
+                                + device.targetHumidity;
+                            device.lastUpdate = Date.now();
+                            this.frig_devices.push(device);
+                        break;
+                        default:
+                            this.log.debug("Device not supported by this plug-in: " + deviceJSON[i]['applianceData']['modelName']);
+                        continue; // skip to next device
+                    }
+                    
                 }
             }
         }
@@ -421,33 +459,62 @@ class Frigidaire extends EventEmitter {
 
                     // Get update information from API for compare and updating.
                     var deviceStatus = deviceJSON[i]['properties']['reported'];
-                    
-                     //Determine if anything has changed since last get, if yes update lastupdate date.
-                    var hasMonitoredValuesChanged = deviceStatus['sensorHumidity']
-                                 + deviceStatus['mode'] 
-                                 + deviceStatus['filterState']
-                                 + deviceStatus['fanSpeedSetting']
-                                 + deviceStatus['cleanAirMode']
-                                 + deviceStatus['waterBucketLevel']
-                                 + deviceStatus['targetHumidity'];
-        
-                    if (hasMonitoredValuesChanged != this.frig_devices[findIndex].monitoredValues) {
-                        this.log.debug("Device Update detected.");
-                        this.frig_devices[findIndex].monitoredValues = hasMonitoredValuesChanged;
-                        this.frig_devices[findIndex].lastupdate = Date.now();
-                        this.frig_devices[findIndex].roomHumidity = deviceStatus['sensorHumidity'];
-                        this.frig_devices[findIndex].targetHumidity = deviceStatus['targetHumidity'];
-                        this.frig_devices[findIndex].mode = deviceStatus['mode'];
-                        this.frig_devices[findIndex].filterStatus = deviceStatus['filterState'];
-                        this.frig_devices[findIndex].fanMode = deviceStatus['fanSpeedSetting'];
-                        this.frig_devices[findIndex].clearAirMode = deviceStatus['cleanAirMode'];
-                        this.frig_devices[findIndex].childMode = deviceStatus['uiLockMode'];
-                        this.frig_devices[findIndex].bucketStatus = deviceStatus['waterBucketLevel'];
-                        this.emit(this.frig_devices[findIndex].deviceId, {
-                            device: this.frig_devices[findIndex]
-                        })
+                    switch (deviceJSON[i]['applianceData']['modelName']) {
+                        case DEHUMIDIFIER:
+                            //Determine if anything has changed since last get, if yes update lastupdate date.
+                            var hasMonitoredValuesChanged = deviceStatus['sensorHumidity']
+                                        + deviceStatus['mode'] 
+                                        + deviceStatus['filterState']
+                                        + deviceStatus['fanSpeedSetting']
+                                        + deviceStatus['cleanAirMode']
+                                        + deviceStatus['waterBucketLevel']
+                                        + deviceStatus['targetHumidity'];
+                
+                            if (hasMonitoredValuesChanged != this.frig_devices[findIndex].monitoredValues) {
+                                this.log.debug("Device Update detected.");
+                                this.frig_devices[findIndex].monitoredValues = hasMonitoredValuesChanged;
+                                this.frig_devices[findIndex].lastupdate = Date.now();
+                                this.frig_devices[findIndex].roomHumidity = deviceStatus['sensorHumidity'];
+                                this.frig_devices[findIndex].targetHumidity = deviceStatus['targetHumidity'];
+                                this.frig_devices[findIndex].mode = deviceStatus['mode'];
+                                this.frig_devices[findIndex].filterStatus = deviceStatus['filterState'];
+                                this.frig_devices[findIndex].fanMode = deviceStatus['fanSpeedSetting'];
+                                this.frig_devices[findIndex].clearAirMode = deviceStatus['cleanAirMode'];
+                                this.frig_devices[findIndex].childMode = deviceStatus['uiLockMode'];
+                                this.frig_devices[findIndex].bucketStatus = deviceStatus['waterBucketLevel'];
+                                this.emit(this.frig_devices[findIndex].deviceId, {
+                                    device: this.frig_devices[findIndex]
+                                })
+                            }
+                        break;
+                        case DEHUMIDIFIERWITHPUMP:
+                            //Determine if anything has changed since last get, if yes update lastupdate date.
+                            var hasMonitoredValuesChanged = deviceStatus['sensorHumidity']
+                                        + deviceStatus['mode'] 
+                                        + deviceStatus['filterState']
+                                        + deviceStatus['fanSpeedSetting']
+                                        + deviceStatus['targetHumidity'];
+                                        + deviceStatus['waterTankFull'];
+                
+                            if (hasMonitoredValuesChanged != this.frig_devices[findIndex].monitoredValues) {
+                                this.log.debug("Device Update detected.");
+                                this.frig_devices[findIndex].monitoredValues = hasMonitoredValuesChanged;
+                                this.frig_devices[findIndex].lastupdate = Date.now();
+                                this.frig_devices[findIndex].roomHumidity = deviceStatus['sensorHumidity'];
+                                this.frig_devices[findIndex].targetHumidity = deviceStatus['targetHumidity'];
+                                this.frig_devices[findIndex].mode = deviceStatus['mode'];
+                                this.frig_devices[findIndex].filterStatus = deviceStatus['filterState'];
+                                this.frig_devices[findIndex].fanMode = deviceStatus['fanSpeedSetting'];
+                                this.frig_devices[findIndex].bucketStatus = (deviceStatus['waterTankFull'] == "NO") ? 0 : 100;
+                                this.emit(this.frig_devices[findIndex].deviceId, {
+                                    device: this.frig_devices[findIndex]
+                                })
+                            }
+                        break;
+                        default:
+                            this.log.debug("Device not supported by this plug-in: " + deviceJSON[i]['applianceData']['modelName']);
+                        continue; // skip to next device
                     }
-                   
                 }
                 else this.log.debug(`Device not found: ${deviceJSON[i]['applianceId']}`);
             }

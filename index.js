@@ -7,7 +7,9 @@ const PLUGIN_NAME = 'homebridge-frigidaire-dehumidifier';
 const PLATFORM_NAME = 'FrigidaireAppliance';
 
 const CLEAN_AIR_MODE = '1004';
-const DEHUMIDIFIER = "DH";
+
+const DEHUMIDIFIER = "DH"; // GHDD5035W1, GHDD3035W1, FGAC5045W1
+const DEHUMIDIFIERWITHPUMP = "Husky"; //FHDD5033W1, FHDD2233W1
 
 var Service, Characteristic, HomebridgeAPI, UUIDGen;
 
@@ -88,7 +90,7 @@ class FrigidaireAppliancePlatform {
       let currentDevice = this.frig.frig_devices[i];
       this.log.debug(this.frig.frig_devices[i]);
       // Confirm appliance is a dehumidifier
-      if (currentDevice.destination == DEHUMIDIFIER) {
+      if ((currentDevice.destination == DEHUMIDIFIER) || (currentDevice.destination == DEHUMIDIFIERWITHPUMP)){
         this.log(`Configuring ${currentDevice.name} with a Device ID: ${currentDevice.deviceId}`);
         let deviceAccessory = new dehumidifierAppliance(this.frig, i, currentDevice, this.config, this.log, Service, Characteristic, UUIDGen);
         // check the accessory was not restored from cache
@@ -105,7 +107,7 @@ class FrigidaireAppliancePlatform {
             deviceAccessory.setAccessory(foundAccessory);
         }
         // if clean air enabled create an air purifier tile to control functionality.
-        if (this.enableAirPurifier) {
+        if ((this.enableAirPurifier) && (currentDevice.destination == DEHUMIDIFIER) && (currentDevice.cleanAirMode)) {
 
             let deviceAccessoryAir = new airpurifierAppliance(this.frig, i, currentDevice, this.config, this.log, Service, Characteristic, UUIDGen, deviceAccessory);
             // check the accessory was not restored from cache
