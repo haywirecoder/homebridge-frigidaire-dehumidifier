@@ -334,7 +334,7 @@ class Frigidaire extends EventEmitter {
             // create device list from user profile.
             for(var i in deviceJSON) {
                 // used for debugging -- Dump all devices discovered at start up
-                this.log.debug("Device Raw Info: ", deviceJSON[i]);
+                this.log("Device Raw Info: ", deviceJSON[i]);
 
                 if (this.excludedDevices.includes(deviceJSON[i]['applianceId'])) {
                     this.log(`Executing Device with name: '${deviceJSON[i]['applianceName']}'`);
@@ -455,7 +455,7 @@ class Frigidaire extends EventEmitter {
                  if (findIndex > -1)
                  { 
                     // Found device at the following index
-                    this.log.debug("Device Found: " + this.frig_devices[findIndex].deviceId)
+                    this.log("Device Found: " + this.frig_devices[findIndex].deviceId);
 
                     // Get update information from API for compare and updating.
                     var deviceStatus = deviceJSON[i]['properties']['reported'];
