@@ -59,6 +59,7 @@ const DEHUMIDIFIERWITHPUMP = "Husky"; //FHDD5033W1, FHDD2233W1
 
  const CLEANAIR_ON = 'ON'
  const CLEANAIR_OFF = 'OFF'
+ const CLEANAIR_NOT_PRESENT = 'NA';
 
  const UI_ON = 'ON'
  const UI_OFF = 'OFF'
@@ -351,13 +352,14 @@ class Frigidaire extends EventEmitter {
                             device.destination = deviceJSON[i]['applianceData']['modelName'];
                             device.roomHumidity = deviceStatus['sensorHumidity'];
                             device.targetHumidity = deviceStatus['targetHumidity'];
-                            device.mode = deviceStatus['mode'];
-                            device.filterStatus = deviceStatus['filterState'];
-                            device.fanMode = deviceStatus['fanSpeedSetting'];
-                            device.clearAirMode = deviceStatus['cleanAirMode'];
-                            device.childMode = deviceStatus['uiLockMode'];
+                            device.mode = toUpperCase(deviceStatus['mode']);
+                            device.filterStatus = toUpperCase(deviceStatus['filterState']);
+                            device.fanMode = toUpperCase(deviceStatus['fanSpeedSetting']);
+                            device.clearAirMode = toUpperCase(deviceStatus['cleanAirMode']) || CLEANAIR_NOT_PRESENT;
+                            device.childMode = toUpperCase(deviceStatus['uiLockMode']);
                             device.bucketStatus = deviceStatus['waterBucketLevel'];
                             device.firmwareVersion = deviceStatus['networkInterface']['swVersion'];
+                            device.applianceState = device.mode;
 
                             device.pnc = device.deviceId?.split(':')[0]?.split('_')[0] ?? 0;
                             device.elc = device.deviceId?.split(':')[0]?.split('_')[1] ?? 0;
@@ -384,13 +386,13 @@ class Frigidaire extends EventEmitter {
                             device.destination = deviceJSON[i]['applianceData']['modelName'];
                             device.roomHumidity = deviceStatus['sensorHumidity'];
                             device.targetHumidity = deviceStatus['targetHumidity'];
-                            device.mode = deviceStatus['mode'];
-                            device.filterStatus = deviceStatus['filterState'];
-                            device.fanMode = deviceStatus['fanSpeedSetting'];
-                            device.bucketStatus = (deviceStatus['waterTankFull'] == "NO") ? 0 : 100;
-                            device.firmwareVersion = deviceStatus['networkInterface']['swVersion'];
-                            device.applianceState = deviceStatus['applianceState'];
-                            device.condensatePump = deviceStatus['condensatePump'];
+                            device.mode = toUpperCase(deviceStatus['mode']);
+                            device.filterStatus = toUpperCase(deviceStatus['filterState']);
+                            device.fanMode = toUpperCase(deviceStatus['fanSpeedSetting']);
+                            device.bucketStatus = (toUpperCase(deviceStatus['waterTankFull'])== "NO") ? 0 : 100;
+                            device.applianceState = toUpperCase(deviceStatus['applianceState']);
+                            device.condensatePump = toUpperCase(deviceStatus['condensatePump']);
+                            device.clearAirMode = CLEANAIR_NOT_PRESENT;
                             device.serialNumber = 0;
                             
                             // storage values to determine if anything needs to be updated.
@@ -398,8 +400,9 @@ class Frigidaire extends EventEmitter {
                                 + device.mode 
                                 + device.filterStatus 
                                 + device.fanMode 
-                                + device.bucketStatus
                                 + device.targetHumidity;
+                                + deviceStatus['waterTankFull'];
+                                
                             device.lastUpdate = Date.now();
                             this.frig_devices.push(device);
                         break;
@@ -476,12 +479,13 @@ class Frigidaire extends EventEmitter {
                                 this.frig_devices[findIndex].lastupdate = Date.now();
                                 this.frig_devices[findIndex].roomHumidity = deviceStatus['sensorHumidity'];
                                 this.frig_devices[findIndex].targetHumidity = deviceStatus['targetHumidity'];
-                                this.frig_devices[findIndex].mode = deviceStatus['mode'];
-                                this.frig_devices[findIndex].filterStatus = deviceStatus['filterState'];
-                                this.frig_devices[findIndex].fanMode = deviceStatus['fanSpeedSetting'];
-                                this.frig_devices[findIndex].clearAirMode = deviceStatus['cleanAirMode'];
-                                this.frig_devices[findIndex].childMode = deviceStatus['uiLockMode'];
+                                this.frig_devices[findIndex].mode = toUpperCase(deviceStatus['mode']);
+                                this.frig_devices[findIndex].filterStatus = toUpperCase(deviceStatus['filterState']);
+                                this.frig_devices[findIndex].fanMode = toUpperCase(deviceStatus['fanSpeedSetting']);
+                                this.frig_devices[findIndex].clearAirMode = toUpperCase(deviceStatus['cleanAirMode']);
+                                this.frig_devices[findIndex].childMode = toUpperCase(deviceStatus['uiLockMode']);
                                 this.frig_devices[findIndex].bucketStatus = deviceStatus['waterBucketLevel'];
+                                this.frig_devices[findIndex].applianceState = this.frig_devices[findIndex].mode
                                 this.emit(this.frig_devices[findIndex].deviceId, {
                                     device: this.frig_devices[findIndex]
                                 })
@@ -496,16 +500,18 @@ class Frigidaire extends EventEmitter {
                                         + deviceStatus['targetHumidity'];
                                         + deviceStatus['waterTankFull'];
                 
+                                
                             if (hasMonitoredValuesChanged != this.frig_devices[findIndex].monitoredValues) {
                                 this.log.debug("Device Update detected.");
                                 this.frig_devices[findIndex].monitoredValues = hasMonitoredValuesChanged;
                                 this.frig_devices[findIndex].lastupdate = Date.now();
                                 this.frig_devices[findIndex].roomHumidity = deviceStatus['sensorHumidity'];
                                 this.frig_devices[findIndex].targetHumidity = deviceStatus['targetHumidity'];
-                                this.frig_devices[findIndex].mode = deviceStatus['mode'];
-                                this.frig_devices[findIndex].filterStatus = deviceStatus['filterState'];
-                                this.frig_devices[findIndex].fanMode = deviceStatus['fanSpeedSetting'];
-                                this.frig_devices[findIndex].bucketStatus = (deviceStatus['waterTankFull'] == "NO") ? 0 : 100;
+                                this.frig_devices[findIndex].mode = toUpperCase(deviceStatus['mode']);
+                                this.frig_devices[findIndex].applianceState = toUpperCase(deviceStatus['applianceState']);
+                                this.frig_devices[findIndex].filterStatus = toUpperCase(deviceStatus['filterState']);
+                                this.frig_devices[findIndex].fanMode = toUpperCase(deviceStatus['fanSpeedSetting']);
+                                this.frig_devices[findIndex].bucketStatus = (toUpperCase(deviceStatus['waterTankFull']) == "NO") ? 0 : 100;
                                 this.emit(this.frig_devices[findIndex].deviceId, {
                                     device: this.frig_devices[findIndex]
                                 })
