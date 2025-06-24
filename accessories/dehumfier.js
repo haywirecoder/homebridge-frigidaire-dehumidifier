@@ -27,6 +27,7 @@ const APP_RUNNING = "RUNNING"
 
 const CLEANAIR_ON = 'ON'
 const CLEANAIR_OFF = 'OFF'
+const CLEANAIR_NOT_PRESENT = 'NA';
 
 const UI_ON = 'ON'
 const UI_OFF = 'OFF'
@@ -82,13 +83,14 @@ class dehumidifierAppliance {
     var dehumidifierService = this.accessory.getService(this.Service.HumidifierDehumidifier);
     this.humidity = eventData.device.roomHumidity || 0;
     this.mode = eventData.device.mode || POWER_OFF;
+    this.applianceState != eventData.device.applianceState || POWER_OFF;
     this.uiMode = eventData.device.uiMode || UI_OFF;
     this.fanMode = eventData.device.fanMode || LOW;
     this.waterBucketStatus = eventData.device.bucketStatus || 0;
     this.targetHumidity = eventData.device.targetHumidity || TARGETHUM;
     this.filterStatus = eventData.device.filterStatus;
 
-    if (this.mode != POWER_OFF){
+    if (this.applianceState != POWER_OFF) {
 
       dehumidifierService.updateCharacteristic(this.Characteristic.CurrentHumidifierDehumidifierState,this.Characteristic.CurrentHumidifierDehumidifierState.DEHUMIDIFYING);
       if (this.mode == AUTO) dehumidifierService.updateCharacteristic(this.Characteristic.TargetHumidifierDehumidifierState,this.Characteristic.TargetHumidifierDehumidifierState.AUTO);
