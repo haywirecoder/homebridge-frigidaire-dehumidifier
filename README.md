@@ -17,7 +17,7 @@ Frigidaire updated their API to v3 in June 2023 and deprecated v2 in February 20
 
 ## Limitation:
 * This module will poll for the status of the various components based frequency provided in the configuration file. No realtime notification is provided.
-* This known to work on limit models: FGAC5045W1 and FHDD5033W1.
+* This is known to work with model FGAC5045W1 and FHDD5033W1. 
 
 
 ## Configuration options
