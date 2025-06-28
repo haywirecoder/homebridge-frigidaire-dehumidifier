@@ -2,6 +2,8 @@
 const frigengine = require('./frigidairmain');
 const dehumidifierAppliance = require('./accessories/dehumfier');
 const airpurifierAppliance = require('./accessories/airpurifier');
+const optionswitch = require('./accessories/optionSwitch');
+
 
 const PLUGIN_NAME = 'homebridge-frigidaire-dehumidifier';
 const PLATFORM_NAME = 'FrigidaireAppliance';
@@ -9,8 +11,8 @@ const PLATFORM_NAME = 'FrigidaireAppliance';
 const CLEAN_AIR_MODE = '1004';
 const CLEANAIR_NOT_PRESENT = 'NA';
 
-const DEHUMIDIFIER = "DH"; // GHDD5035W1, GHDD3035W1, FGAC5045W1
-const DEHUMIDIFIERWITHPUMP = "Husky"; //FHDD5033W1, FHDD2233W1
+const DEHUMIDIFIER = "DH"; // FGAC5045W1
+const DEHUMIDIFIER_HUSKY = "Husky"; //FHDD5033W1
 
 var Service, Characteristic, HomebridgeAPI, UUIDGen;
 
@@ -31,6 +33,7 @@ class FrigidaireAppliancePlatform {
   this.name = config.name;
   this.config = config;
   this.accessories = [];
+  this.frigExtraAccessories = [];
   this.persistPath = undefined;
     
   
@@ -52,6 +55,9 @@ class FrigidaireAppliancePlatform {
 
   // Determine if purifiers should be enabled
   this.enableAirPurifier  = this.config.enableAirPurifier ?? true;
+
+  // Determine if pump switch should be enabled
+  this.enablePumpSwitch = this.config.enablePumpSwitch ?? true;
 
   // Homebridge storage folder for local storage of access and refresh token
   this.persistPath = api.user.persistPath();
@@ -91,7 +97,7 @@ class FrigidaireAppliancePlatform {
       let currentDevice = this.frig.frig_devices[i];
       this.log.debug(this.frig.frig_devices[i]);
       // Confirm appliance is a dehumidifier
-      if ((currentDevice.destination == DEHUMIDIFIER) || (currentDevice.destination == DEHUMIDIFIERWITHPUMP)){
+      if ((currentDevice.destination == DEHUMIDIFIER) || (currentDevice.destination == DEHUMIDIFIER_HUSKY)){
         this.log(`Configuring ${currentDevice.name} with a Device ID: ${currentDevice.deviceId}`);
         let deviceAccessory = new dehumidifierAppliance(this.frig, i, currentDevice, this.config, this.log, Service, Characteristic, UUIDGen);
         // check the accessory was not restored from cache
@@ -106,6 +112,25 @@ class FrigidaireAppliancePlatform {
         }
         else {// accessory already exist just set characteristic
             deviceAccessory.setAccessory(foundAccessory);
+        }
+        if((currentDevice.destination == DEHUMIDIFIER_HUSKY) && (this.enablePumpSwitch)) {
+              this.config.switchType = "pumpswitch";
+              var pumpswitch = new optionswitch(this.frig, i, currentDevice, this.config, this.log, Service, Characteristic, UUIDGen);
+              // check the accessory was not restored from cache
+              foundAccessory = this.accessories.find(accessory => accessory.UUID === pumpswitch.uuid)
+              this.log(pumpswitch.switchType);
+              if (!foundAccessory) {
+                // create a new accessory
+                let newAccessory = new this.api.platformAccessory(currentDevice.name + " Pump", pumpswitch.uuid);
+                // add services and Characteristic
+                pumpswitch.setAccessory(newAccessory);
+                // register the accessory
+                this.addAccessory(pumpswitch);
+              }
+              else // accessory already exist just set characteristic
+                pumpswitch.setAccessory(foundAccessory);
+              this.frigExtraAccessories.push(pumpswitch);
+              this.log.info(`Pump Switch Enabled for ${currentDevice.name}`);
         }
         // if clean air enabled create an air purifier tile to control functionality.
         if ((this.enableAirPurifier) && (currentDevice.destination == DEHUMIDIFIER) && (currentDevice.cleanAirMode != CLEANAIR_NOT_PRESENT)) {
@@ -124,6 +149,7 @@ class FrigidaireAppliancePlatform {
             else {// accessory already exist just set characteristic
               deviceAccessoryAir.setAccessory(foundAccessory);
             }
+            this.frigExtraAccessories.push(pumpswitch);
         }
         homekit_appliance_count += 1;
       }
@@ -150,18 +176,13 @@ async orphanAccessory() {
     // determine if accessory is currently a device in frigidaire account, thus should remain
     foundAccessory = this.frig.frig_devices.find(device => UUIDGen.generate(device.deviceId.toString()) === accessory.UUID)
     if (!foundAccessory) {
-      if (this.enableAirPurifier) {
-        // check for additional accessories that is link to this device.
-          foundAccessory = this.frig.frig_devices.find(device => UUIDGen.generate(device.deviceId.toString()+ "-" + CLEAN_AIR_MODE) === accessory.UUID)
-          if (!foundAccessory) 
-            this.removeAccessory(accessory,true);
+        foundAccessory = this.frigExtraAccessories.find(frigExtraAccessories => frigExtraAccessories.uuid === accessory.UUID);
+        if (!foundAccessory) { 
+            this.removeAccessory(accessory,false);
+        }
       }
-      else
-        this.removeAccessory(accessory,true);
     }
   }
-}
-
 
 //Add accessory to homekit dashboard
 addAccessory(device) {

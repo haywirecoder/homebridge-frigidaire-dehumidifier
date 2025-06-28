@@ -71,6 +71,12 @@
           "default": true,
           "description": "Expose an Air Purifier Accessory. May not be available in all models."
         },
+        "enablePumpSwitch": {
+          "title": "Enable Pump Switch",
+          "type": "boolean",
+          "default": true,
+          "description": "Create a Pump Switch accessory. This is only available for dehumidifiers with a pump."
+        },
         "excludedDevices": {
           "type": "array",
           "items": {
@@ -88,7 +94,8 @@
           "auth.password",
           "deviceRefresh",
           "dehumidifierMode",
-          "enableAirPurifier"
+          "enableAirPurifier",
+          "enablePumpSwitch"
         ]
       },
       {
