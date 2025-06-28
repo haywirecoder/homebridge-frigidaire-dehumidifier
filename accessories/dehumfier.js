@@ -1,13 +1,13 @@
 "use strict";
-const TARGETHUM = 40;
+const TARGETHUM = 40
  // Filter status
  const BUY = "BUY"
  const CHANGE = "CHANGE"
  const CLEAN = "CLEAN"
  const GOOD = "GOOD"
  
-const DEHUMIDIFIER = "DH"; // GHDD5035W1, GHDD3035W1, FGAC5045W1
-const DEHUMIDIFIERWITHPUMP = "Husky"; //FHDD5033W1, FHDD2233W1
+const DEHUMIDIFIER = "DH"; // FGAC5045W1
+const DEHUMIDIFIER_HUSKY = "Husky"; //FHDD5033W1
 
 // Dehumidifier Modes
 const DRY = 'DRY'
@@ -22,12 +22,10 @@ const HIGH = 'HIGH'
 
 const POWER_ON = 'ON'
 const POWER_OFF = 'OFF'
-const APP_OFF = "OFF"
-const APP_RUNNING = "RUNNING"
 
 const CLEANAIR_ON = 'ON'
 const CLEANAIR_OFF = 'OFF'
-const CLEANAIR_NOT_PRESENT = 'NA';
+const CLEANAIR_NOT_PRESENT = 'NA'
 
 const UI_ON = 'ON'
 const UI_OFF = 'OFF'
@@ -83,7 +81,7 @@ class dehumidifierAppliance {
     var dehumidifierService = this.accessory.getService(this.Service.HumidifierDehumidifier);
     this.humidity = eventData.device.roomHumidity || 0;
     this.mode = eventData.device.mode || POWER_OFF;
-    this.applianceState != eventData.device.applianceState || POWER_OFF;
+    this.applianceState != eventData.device.applianceState || this.mode;
     this.uiMode = eventData.device.uiMode || UI_OFF;
     this.fanMode = eventData.device.fanMode || LOW;
     this.waterBucketStatus = eventData.device.bucketStatus || 0;
@@ -157,10 +155,11 @@ class dehumidifierAppliance {
         .on('get', async callback => this.getRelativeHumidityDehumidifier(callback))
         .on('set', async (state, callback)  => this.setRelativeHumidityDehumidifier(state, callback));
 
-    if (this.destination != DEHUMIDIFIERWITHPUMP) {
+    if (this.destination == DEHUMIDIFIER) {
       dehumidifierService.getCharacteristic(this.Characteristic.LockPhysicalControls)
        .on('get', async callback => this.getLockPhysicalControls(callback))
-       .on('set', async (state, callback)  => this.setLockPhysicalControls(state, callback));}
+       .on('set', async (state, callback)  => this.setLockPhysicalControls(state, callback));
+    }
 
     // Create filter for notification
     var filterService = this.accessory.getService(this.Service.FilterMaintenance);
@@ -278,14 +277,10 @@ class dehumidifierAppliance {
   }
 
 // Handle requests to get the current value of the "WaterLevel" characteristic
-async getWaterLevel(callback) {
-  var currentValue;
-  // if bucket is full set to max value otherwise assume empty.
-  if (this.waterBucketStatus == 0) currentValue = 0;
-  else currentValue = 100;
-  // set this to a valid value for water level
-  return callback(null, currentValue);
-}
+  async getWaterLevel(callback) {
+    // set this to a valid value for water level
+    return callback(null, this.waterBucketStatus );
+  }
 
   // Handle requests to get the current value of the "Current Relative Humidity" characteristic
   async getCurrentRelativeHumidity(callback) {
@@ -314,6 +309,5 @@ async getWaterLevel(callback) {
     if ( this.filterStatus == CHANGE) currentValue = this.Characteristic.FilterChangeIndication.CHANGE_FILTER;
     return callback(null, currentValue);
   }
-  
 }
 module.exports = dehumidifierAppliance;
