@@ -28,8 +28,8 @@ Frigidaire updated their API to v3 in June 2023 and deprecated v2 in February 20
 | password              | Frigidaire password. This is a required value.                                                                 |
 | deviceRefresh        | Polling interval to obtain status of Frigidaire appliance, provided in seconds. Default to <i>90</i> seconds, this is an optional value. <b>Please note:</b> Small values may cause account lock or frequent API errors.                                                                    |
 | dehumidifierMode          | Homekit only has two mode dehumidifying modes "Auto" and "Dehumidifying". When "Dehumidifying" is selected in Homekit the selection is map to a specific Frigidaire appliance mode: "Quiet", "Dry" or "Continuous". <p><p>Valid string values are the following: <br>"Dry"<br>"Continuous"<br>"Quiet"<p>The default mode for is Frigidaire "Dry" mode. This an optional value.  
-| enableAirPurifier | Create additional accessory for Air purifier/Ionizer functionality. Only avaiable in limited models. Default to <i>true</i>, this is an optional value.    
-| enablePumpSwitch | Create additional accessory to control water pump. Only avaiable in limited models. Default to <i>true</i>, this is an optional value.                                                         
+| enableAirPurifier | Create additional accessory for Air purifier/Ionizer functionality. Only available in limited models. Default to <i>true</i>, this is an optional value.    
+| enablePumpSwitch | Create additional accessory to control water pump. Only available in limited models. Default to <i>true</i>, this is an optional value.                                                         
 | excludedDevices         | Devices IDs to suppress from HomeKit. The device IDs can be obtain from Homebridge logs at startup of this plug-in. This is an optional value. | |
 
 
