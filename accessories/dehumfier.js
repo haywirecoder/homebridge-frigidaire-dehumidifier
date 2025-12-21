@@ -23,6 +23,9 @@ const HIGH = 'HIGH'
 const POWER_ON = 'ON'
 const POWER_OFF = 'OFF'
 
+ const APP_OFF = "OFF"
+ const APP_RUNNING = "RUNNING"
+
 const CLEANAIR_ON = 'ON'
 const CLEANAIR_OFF = 'OFF'
 const CLEANAIR_NOT_PRESENT = 'NA'
@@ -81,14 +84,14 @@ class dehumidifierAppliance {
     var dehumidifierService = this.accessory.getService(this.Service.HumidifierDehumidifier);
     this.humidity = eventData.device.roomHumidity || 0;
     this.mode = eventData.device.mode || POWER_OFF;
-    this.applianceState != eventData.device.applianceState || this.mode;
+    this.applianceState = eventData.device.applianceState || this.mode;
     this.uiMode = eventData.device.uiMode || UI_OFF;
     this.fanMode = eventData.device.fanMode || LOW;
     this.waterBucketStatus = eventData.device.bucketStatus || 0;
     this.targetHumidity = eventData.device.targetHumidity || TARGETHUM;
     this.filterStatus = eventData.device.filterStatus;
 
-    if (this.applianceState != POWER_OFF) {
+    if (this.applianceState != APP_OFF) {
 
       dehumidifierService.updateCharacteristic(this.Characteristic.CurrentHumidifierDehumidifierState,this.Characteristic.CurrentHumidifierDehumidifierState.DEHUMIDIFYING);
       if (this.mode == AUTO) dehumidifierService.updateCharacteristic(this.Characteristic.TargetHumidifierDehumidifierState,this.Characteristic.TargetHumidifierDehumidifierState.AUTO);
@@ -193,7 +196,7 @@ class dehumidifierAppliance {
   // Handle requests to get the current value of the "Active" characteristic
   async getDehumidifierActive(callback) {
       var currentValue = this.Characteristic.Active.INACTIVE;
-      if(this.mode != POWER_OFF) currentValue = this.Characteristic.Active.ACTIVE;
+      if( this.applianceState != APP_OFF ) currentValue = this.Characteristic.Active.ACTIVE;
       return callback(null, currentValue);
     }
   
@@ -211,7 +214,7 @@ class dehumidifierAppliance {
   // Handle requests to get the current value of the "Current Humidifier-Dehumidifier State" characteristic
   async getCurrentHumidifierDehumidifierState(callback) {
     var currentValue = this.Characteristic.CurrentHumidifierDehumidifierState.INACTIVE;
-    if (this.mode != POWER_OFF) currentValue = this.Characteristic.CurrentHumidifierDehumidifierState.DEHUMIDIFYING;
+    if (this.applianceState != APP_OFF) currentValue = this.Characteristic.CurrentHumidifierDehumidifierState.DEHUMIDIFYING;
     return callback(null, currentValue);
   }
 
