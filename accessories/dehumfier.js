@@ -23,8 +23,8 @@ const HIGH = 'HIGH'
 const POWER_ON = 'ON'
 const POWER_OFF = 'OFF'
 
- const APP_OFF = "OFF"
- const APP_RUNNING = "RUNNING"
+ const APP_OFF = 'OFF'
+ const APP_RUNNING = 'RUNNING'
 
 const CLEANAIR_ON = 'ON'
 const CLEANAIR_OFF = 'OFF'
@@ -47,6 +47,7 @@ class dehumidifierAppliance {
     this.firmware = device.firmwareVersion || HomeBridgeDehumidifierApplianceVersion;
     this.humidity = device.roomHumidity || 0;
     this.mode = device.mode || POWER_OFF;
+    this.applianceState = device.applianceState || this.mode;
     this.uiMode = device.uiMode || UI_OFF;
     this.fanMode = device.fanMode || LOW;
     this.targetHumidity = device.targetHumidity || TARGETHUM;
