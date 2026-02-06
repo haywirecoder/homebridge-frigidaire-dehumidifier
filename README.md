@@ -1,6 +1,9 @@
+
+
 [![NPM Version](https://img.shields.io/npm/v/homebridge-frigidaire-dehumidifier.svg?style=flat-square)](https://www.npmjs.com/package/homebridge-frigidaire-dehumidifier)
 [![verified-by-homebridge](https://badgen.net/badge/homebridge/verified/purple)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
-
+> ### 🛑 Plug-In Status: Unmaintained
+> Due to multiple failure of Frigidaire dehumidifier. This plug-in is **no longer actively developed or supported**. The repository has been moved to an archival state for historical reference.
 
 <p align="center">
  
